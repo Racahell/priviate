@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TutoringSession extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'student_id',
@@ -29,6 +30,7 @@ class TutoringSession extends Model
         'rating',
         'review',
         'auto_completed_at',
+        'is_deleted',
     ];
 
     protected $casts = [
@@ -42,6 +44,7 @@ class TutoringSession extends Model
         'check_in_lng' => 'decimal:8',
         'check_out_lat' => 'decimal:8',
         'check_out_lng' => 'decimal:8',
+        'is_deleted' => 'boolean',
     ];
 
     public function student()

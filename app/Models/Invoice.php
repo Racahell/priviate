@@ -24,6 +24,7 @@ class Invoice extends Model
         'issue_date' => 'date',
         'due_date' => 'date',
         'total_amount' => 'decimal:2',
+        'is_deleted' => 'boolean',
     ];
 
     public function user()

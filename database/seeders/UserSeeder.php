@@ -17,9 +17,9 @@ class UserSeeder extends Seeder
     {
         $password = Hash::make('password'); // Default password for all
 
-        // 1. Superadmin (satu@g)
+        // 1. Superadmin
         $superadmin = User::firstOrCreate(
-            ['email' => 'satu@g'],
+            ['email' => 'superadmin@example.com'],
             [
                 'name' => 'Super Admin',
                 'password' => $password,
@@ -29,9 +29,9 @@ class UserSeeder extends Seeder
         );
         $superadmin->assignRole('superadmin');
 
-        // 2. Admin (dua@g)
+        // 2. Admin
         $admin = User::firstOrCreate(
-            ['email' => 'dua@g'],
+            ['email' => 'admin@example.com'],
             [
                 'name' => 'Admin Cabang',
                 'password' => $password,
@@ -41,9 +41,9 @@ class UserSeeder extends Seeder
         );
         $admin->assignRole('admin');
 
-        // 3. Owner (tiga@g)
+        // 3. Owner
         $owner = User::firstOrCreate(
-            ['email' => 'tiga@g'],
+            ['email' => 'owner@example.com'],
             [
                 'name' => 'Business Owner',
                 'password' => $password,
@@ -53,9 +53,21 @@ class UserSeeder extends Seeder
         );
         $owner->assignRole('owner');
 
-        // 4. Tentor (empat@g)
+        // 4. Manager Operasional
+        $manager = User::firstOrCreate(
+            ['email' => 'manager@example.com'],
+            [
+                'name' => 'Manager Operasional',
+                'password' => $password,
+                'email_verified_at' => now(),
+                'is_active' => true,
+            ]
+        );
+        $manager->assignRole('manager');
+
+        // 5. Tentor
         $tentor = User::firstOrCreate(
-            ['email' => 'empat@g'],
+            ['email' => 'tentor@example.com'],
             [
                 'name' => 'Tentor Profesional',
                 'password' => $password,
@@ -75,9 +87,9 @@ class UserSeeder extends Seeder
             ]);
         }
 
-        // 5. Siswa (lima@g)
+        // 6. Siswa
         $siswa = User::firstOrCreate(
-            ['email' => 'lima@g'],
+            ['email' => 'siswa@example.com'],
             [
                 'name' => 'Siswa Rajin',
                 'password' => $password,
@@ -86,7 +98,17 @@ class UserSeeder extends Seeder
             ]
         );
         $siswa->assignRole('siswa');
-        
-        // Create Wallet/Profile for Siswa if needed (optional)
+
+        // 7. Orang Tua
+        $orangTua = User::firstOrCreate(
+            ['email' => 'orangtua@example.com'],
+            [
+                'name' => 'Orang Tua',
+                'password' => $password,
+                'email_verified_at' => now(),
+                'is_active' => true,
+            ]
+        );
+        $orangTua->assignRole('orang_tua');
     }
 }

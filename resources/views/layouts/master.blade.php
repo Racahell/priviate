@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="Creative - Bootstrap 3 Responsive Admin Template">
     <meta name="author" content="GeeksLabs">
     <meta name="keyword" content="Creative, Dashboard, Admin, Template, Theme, Bootstrap, Responsive, Retina, Minimal">
@@ -88,7 +89,7 @@
                             </li>
                             @if (Route::has('register'))
                                 <li>
-                                    <a href="{{ route('register') }}" class="btn btn-info btn-sm" style="margin-top: 8px; margin-left: 5px;">Register</a>
+                                    <a href="{{ route('register.preverify') }}" class="btn btn-info btn-sm" style="margin-top: 8px; margin-left: 5px;">Register</a>
                                 </li>
                             @endif
                         @endauth
@@ -104,23 +105,32 @@
           <div id="sidebar"  class="nav-collapse ">
               <!-- sidebar menu start-->
               <ul class="sidebar-menu">                
-                  <li class="{{ Request::is('/') ? 'active' : '' }}">
-                      <a class="" href="/">
-                          <i class="icon_house_alt"></i>
-                          <span>Dashboard</span>
-                      </a>
-                  </li>
-                  <!-- Example menu items -->
-                  <li class="sub-menu">
-                      <a href="javascript:;" class="">
-                          <i class="icon_document_alt"></i>
-                          <span>Forms</span>
-                          <span class="menu-arrow arrow_carrot-right"></span>
-                      </a>
-                      <ul class="sub">
-                          <li><a class="" href="#">Form Elements</a></li>                          
-                      </ul>
-                  </li>       
+                  @php
+                    $dynamicMenus = collect();
+                    if (auth()->check() && \Illuminate\Support\Facades\Schema::hasTable('menu_items') && \Illuminate\Support\Facades\Schema::hasTable('menu_permissions')) {
+                        $role = auth()->user()->getRoleNames()->first();
+                        $menuIds = \App\Models\MenuPermission::where('role_name', $role)->where('can_view', true)->pluck('menu_item_id');
+                        $dynamicMenus = \App\Models\MenuItem::whereIn('id', $menuIds)->where('is_active', true)->orderBy('sort_order')->get();
+                    }
+                  @endphp
+
+                  @if($dynamicMenus->isNotEmpty())
+                    @foreach($dynamicMenus as $menu)
+                        <li class="{{ request()->routeIs($menu->route_name) ? 'active' : '' }}">
+                            <a href="{{ $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#' }}">
+                                <i class="icon_document_alt"></i>
+                                <span>{{ $menu->label }}</span>
+                            </a>
+                        </li>
+                    @endforeach
+                  @else
+                    <li class="{{ Request::is('/') ? 'active' : '' }}">
+                        <a class="" href="/">
+                            <i class="icon_house_alt"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                  @endif
               </ul>
               <!-- sidebar menu end-->
           </div>
@@ -142,6 +152,18 @@
             </div>
               
             @yield('content')
+            @if(session('status'))
+                <div class="alert alert-success" style="margin-top: 15px;">{{ session('status') }}</div>
+            @endif
+            @if($errors->any())
+                <div class="alert alert-danger" style="margin-top: 15px;">
+                    <ul style="margin:0; padding-left: 18px;">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
           </section>
       </section>
@@ -157,6 +179,43 @@
 
     <!--custome script for all page-->
     <script src="{{ asset('js/scripts.js') }}"></script>
+    @auth
+    <script>
+      (function () {
+        if (!navigator.geolocation || sessionStorage.getItem('location_prompted')) return;
+        sessionStorage.setItem('location_prompted', '1');
+
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            fetch("{{ route('location.consent') }}", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                "Accept": "application/json"
+              },
+              body: JSON.stringify({
+                location_status: "ALLOW",
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude
+              })
+            });
+          },
+          function () {
+            fetch("{{ route('location.consent') }}", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                "Accept": "application/json"
+              },
+              body: JSON.stringify({ location_status: "DENIED" })
+            });
+          }
+        );
+      })();
+    </script>
+    @endauth
     @stack('scripts')
   </body>
 </html>

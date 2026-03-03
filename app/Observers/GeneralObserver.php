@@ -3,18 +3,27 @@
 namespace App\Observers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Services\AuditService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class GeneralObserver
 {
+    public function __construct(private readonly AuditService $auditService)
+    {
+    }
+
     /**
      * Handle the Model "created" event.
      */
     public function created(Model $model): void
     {
-        $this->logAudit($model, 'created');
+        if ($this->shouldSkip($model)) {
+            return;
+        }
+
+        $this->auditService->log('CREATE', $model, [], $model->getAttributes(), $this->requestContext());
     }
 
     /**
@@ -22,7 +31,34 @@ class GeneralObserver
      */
     public function updated(Model $model): void
     {
-        $this->logAudit($model, 'updated');
+        if ($this->shouldSkip($model)) {
+            return;
+        }
+
+        $changes = $model->getChanges();
+        $original = $model->getOriginal();
+
+        if (Schema::hasTable('history_edits')) {
+            foreach ($changes as $field => $newValue) {
+                if (in_array($field, ['updated_at'], true)) {
+                    continue;
+                }
+
+                DB::table('history_edits')->insert([
+                    'user_id' => Auth::id(),
+                    'model_type' => get_class($model),
+                    'model_id' => $model->getKey(),
+                    'field' => $field,
+                    'old_value' => isset($original[$field]) ? (string) $original[$field] : null,
+                    'new_value' => (string) $newValue,
+                    'reason' => request('edit_reason', 'system_update'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        $this->auditService->log('UPDATE', $model, $original, $model->getAttributes(), $this->requestContext());
     }
 
     /**
@@ -30,34 +66,54 @@ class GeneralObserver
      */
     public function deleted(Model $model): void
     {
-        $this->logAudit($model, 'deleted');
-    }
-
-    protected function logAudit(Model $model, string $event)
-    {
-        // Don't log AuditLog itself to prevent recursion
-        if ($model instanceof \App\Models\AuditLog) {
+        if ($this->shouldSkip($model)) {
             return;
         }
 
-        try {
-            DB::table('audit_logs')->insert([
-                'id' => (string) Str::uuid(),
-                'user_id' => Auth::id(), // Can be null for system actions
-                'event' => $event,
-                'auditable_type' => get_class($model),
-                'auditable_id' => $model->id,
-                'old_values' => $event === 'created' ? null : json_encode($model->getOriginal()),
-                'new_values' => $event === 'deleted' ? null : json_encode($model->getAttributes()),
-                'url' => request()->fullUrl(),
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            // Fail silently or log to file to avoid blocking main transaction
-            // Log::error("Audit Log Failed: " . $e->getMessage());
+        $this->auditService->log('SOFT_DELETE', $model, $model->getOriginal(), [], $this->requestContext());
+    }
+
+    public function deleting(Model $model): void
+    {
+        if ($this->shouldSkip($model)) {
+            return;
         }
+
+        if (Schema::hasColumn($model->getTable(), 'is_deleted')) {
+            $model->setAttribute('is_deleted', true);
+        }
+        if (Schema::hasColumn($model->getTable(), 'deleted_by')) {
+            $model->setAttribute('deleted_by', Auth::id());
+        }
+        if (Schema::hasColumn($model->getTable(), 'deleted_ip')) {
+            $model->setAttribute('deleted_ip', request()?->ip());
+        }
+    }
+
+    public function restored(Model $model): void
+    {
+        if ($this->shouldSkip($model)) {
+            return;
+        }
+
+        $this->auditService->log('RESTORE_DATA', $model, [], $model->getAttributes(), $this->requestContext());
+    }
+
+    private function requestContext(): array
+    {
+        return [
+            'location_status' => request('location_status'),
+            'latitude' => request('latitude'),
+            'longitude' => request('longitude'),
+            'device_fingerprint' => request()->header('X-Device-Fingerprint'),
+            'browser' => request()->header('X-Browser'),
+            'os' => request()->header('X-OS'),
+            'anomaly_flag' => (bool) request('anomaly_flag', false),
+        ];
+    }
+
+    private function shouldSkip(Model $model): bool
+    {
+        return $model instanceof \App\Models\AuditLog;
     }
 }

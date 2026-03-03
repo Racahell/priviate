@@ -1,100 +1,108 @@
-@extends('layouts.master')
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BimbinganKu | Les Privat</title>
+    <link rel="stylesheet" href="{{ asset('landing.css') }}">
+</head>
+<body>
+    <header class="site-header">
+        <nav class="navbar container">
+            <a href="{{ route('home') }}" class="logo">BimbinganKu</a>
+            <ul class="nav-links">
+                <li><a href="#layanan">Layanan</a></li>
+                <li><a href="#keunggulan">Keunggulan</a></li>
+                <li><a href="#kontak">Kontak</a></li>
+            </ul>
+            <a href="{{ route('register.preverify') }}" class="btn btn-nav">Daftar</a>
+        </nav>
+    </header>
 
-@section('title', 'Welcome to PrivTuition')
-
-@section('content')
-<!-- Hero Section -->
-<div class="row">
-    <div class="col-lg-12">
-        <div class="jumbotron text-center" style="background: #f7f7f7; padding: 50px 20px; border-radius: 10px;">
-            <h1>Cari Tentor Terbaik di Sekitarmu</h1>
-            <p>Platform les privat terpercaya dengan sistem pembayaran aman.</p>
-            
-            <form action="{{ route('home') }}" method="GET" class="form-inline" style="margin-top: 30px;">
-                <div class="form-group">
-                    <input type="text" class="form-control input-lg" placeholder="Subjek (Matematika, Fisika...)" name="subject">
+    <main>
+        <section class="hero">
+            <div class="container hero-grid">
+                <div>
+                    <p class="tagline">Platform les privat terpercaya</p>
+                    <h1>Belajar Lebih Mudah dan Nyaman dari Rumah</h1>
+                    <p class="hero-desc">
+                        Pilih guru terbaik, atur jadwal fleksibel, dan pantau progres belajar dalam satu aplikasi.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="{{ route('register.preverify') }}" class="btn btn-primary">Daftar Sekarang</a>
+                        <a href="{{ route('login') }}" class="btn btn-secondary">Masuk</a>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <input type="text" class="form-control input-lg" placeholder="Lokasi (Kecamatan/Kota)" name="location">
+                <div class="hero-panel">
+                    <p class="hero-panel-title">Kenapa pilih kami?</p>
+                    <p>Kelas privat terjadwal rapi, laporan belajar jelas, dan komunikasi orang tua lebih terkontrol.</p>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg">Cari Sekarang</button>
-            </form>
-        </div>
-    </div>
-</div>
+            </div>
+        </section>
 
-<!-- Stats Widget -->
-<div class="row text-center">
-    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
-        <div class="info-box blue-bg">
-            <i class="fa fa-graduation-cap"></i>
-            <div class="count">{{ $totalSessions }}</div>
-            <div class="title">Sesi Berhasil</div>
-        </div>
-    </div>
-    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
-        <div class="info-box brown-bg">
-            <i class="fa fa-users"></i>
-            <div class="count">{{ $totalTentors }}</div>
-            <div class="title">Tentor Aktif</div>
-        </div>
-    </div>
-    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
-        <div class="info-box dark-bg">
-            <i class="fa fa-star"></i>
-            <div class="count">{{ number_format($avgRating, 1) }}</div>
-            <div class="title">Rata-rata Rating</div>
-        </div>
-    </div>
-</div>
+        <section id="layanan" class="section container">
+            <h2>Layanan</h2>
+            <div class="card-grid">
+                <article class="card">
+                    <h3>Matematika</h3>
+                    <p>Pendampingan konsep dasar sampai latihan soal intensif sesuai jenjang.</p>
+                </article>
+                <article class="card">
+                    <h3>IPA</h3>
+                    <p>Pembelajaran terstruktur untuk Fisika, Kimia, dan Biologi dengan pendekatan praktis.</p>
+                </article>
+                <article class="card">
+                    <h3>Bahasa Inggris</h3>
+                    <p>Program speaking, grammar, reading, dan persiapan ujian sekolah.</p>
+                </article>
+            </div>
+        </section>
 
-<!-- Tutor Discovery -->
-<div class="row">
-    <div class="col-lg-12">
-        <h3 class="page-header"><i class="fa fa-search"></i> Rekomendasi Tentor</h3>
-    </div>
-    
-    @forelse($tutors as $tutor)
-    <div class="col-lg-4 col-md-4 col-sm-6">
-        <div class="panel panel-default">
-            <div class="panel-body text-center">
-                <img src="https://ui-avatars.com/api/?name={{ urlencode($tutor->name) }}&background=random" class="img-circle" width="100">
-                <h4>{{ $tutor->name }}</h4>
-                <p class="text-muted">Tentor Profesional</p>
-                <hr>
-                <p><i class="fa fa-star text-warning"></i> {{ $tutor->average_rating ?? 'New' }}</p>
-                <a href="#" class="btn btn-info btn-sm">Lihat Profil</a>
+        <section id="keunggulan" class="section section-accent">
+            <div class="container">
+                <h2>Keunggulan</h2>
+                <div class="highlight-panel">
+                    <p>Panel Keunggulan</p>
+                    <h3>Belajar terarah, aman, dan terpantau</h3>
+                </div>
+                <div class="feature-grid">
+                    <article class="feature">
+                        <span class="emoji">🏠</span>
+                        <h3>Belajar di Rumah</h3>
+                        <p>Proses belajar lebih fokus tanpa perlu perjalanan jauh.</p>
+                    </article>
+                    <article class="feature">
+                        <span class="emoji">🧭</span>
+                        <h3>Kurikulum Personal</h3>
+                        <p>Materi disesuaikan dengan kebutuhan dan target siswa.</p>
+                    </article>
+                    <article class="feature">
+                        <span class="emoji">🗓️</span>
+                        <h3>Jadwal Fleksibel</h3>
+                        <p>Pilih waktu belajar yang cocok untuk siswa dan orang tua.</p>
+                    </article>
+                    <article class="feature">
+                        <span class="emoji">📈</span>
+                        <h3>Laporan Kemajuan</h3>
+                        <p>Perkembangan belajar dipantau rutin setiap pertemuan.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="kontak" class="site-footer">
+        <div class="container footer-grid">
+            <div>
+                <h3>BimbinganKu</h3>
+                <p>Jl. Pendidikan No. 10, Jakarta</p>
+            </div>
+            <div>
+                <p>Email: info@bimbinganku.id</p>
+                <p>WhatsApp: +62 812-0000-0000</p>
+                <p>Jam Operasional: 08.00 - 20.00 WIB</p>
             </div>
         </div>
-    </div>
-    @empty
-    <div class="col-lg-12 text-center">
-        <p class="text-muted">Belum ada tentor yang tersedia saat ini.</p>
-    </div>
-    @endforelse
-</div>
-
-<!-- CTA -->
-<div class="row" style="margin-top: 50px;">
-    <div class="col-lg-6 text-center">
-        <div class="panel panel-primary">
-            <div class="panel-heading">Untuk Siswa</div>
-            <div class="panel-body">
-                <h3>Ingin Belajar Lebih Efektif?</h3>
-                <p>Temukan tentor yang cocok dengan gaya belajarmu.</p>
-                <a href="/register" class="btn btn-primary">Daftar sebagai Siswa</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6 text-center">
-        <div class="panel panel-success">
-            <div class="panel-heading">Untuk Tentor</div>
-            <div class="panel-body">
-                <h3>Punya Keahlian Mengajar?</h3>
-                <p>Bergabunglah dan dapatkan penghasilan tambahan.</p>
-                <a href="/register" class="btn btn-success">Gabung sebagai Tentor</a>
-            </div>
-        </div>
-    </div>
-</div>
-@endsection
+    </footer>
+</body>
+</html>

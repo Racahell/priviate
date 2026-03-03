@@ -31,6 +31,18 @@
                         @error('captcha') <span class="help-block">{{ $message }}</span> @enderror
                     </div>
 
+                    @if(config('services.recaptcha.enabled') && !empty($recaptchaSiteKey))
+                        <div class="form-group">
+                            <label>Verifikasi Online (Google reCAPTCHA)</label>
+                            <div class="g-recaptcha" data-sitekey="{{ $recaptchaSiteKey }}"></div>
+                            <p class="help-block">Jika tidak bisa di-load, sistem akan pakai captcha offline di atas.</p>
+                        </div>
+                    @endif
+
+                    <input type="hidden" name="location_status" id="location_status" value="DENIED">
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
+
                     <div class="checkbox">
                         <label>
                             <input type="checkbox" name="remember"> Remember Me
@@ -41,11 +53,35 @@
                     
                     <hr>
                     <p class="text-center">
-                        Belum punya akun? <a href="{{ route('register') }}">Daftar disini</a>
+                        Belum punya akun? <a href="{{ route('register.preverify') }}">Daftar disini</a>
+                    </p>
+                    <p class="text-center">
+                        Lupa password? <a href="{{ route('password.forgot') }}">Reset via WA/Email</a>
                     </p>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+@if(config('services.recaptcha.enabled') && !empty($recaptchaSiteKey))
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+@endif
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!navigator.geolocation) {
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            document.getElementById('location_status').value = 'ALLOW';
+            document.getElementById('latitude').value = position.coords.latitude;
+            document.getElementById('longitude').value = position.coords.longitude;
+        },
+        function() {
+            document.getElementById('location_status').value = 'DENIED';
+        }
+    );
+});
+</script>
 @endsection

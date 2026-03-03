@@ -12,6 +12,9 @@
             <div class="panel-body">
                 <form action="{{ route('register.post') }}" method="POST">
                     @csrf
+                    <div class="alert alert-info">
+                        Email terverifikasi: <strong>{{ $preVerifiedEmail ?? '-' }}</strong>
+                    </div>
                     
                     <div class="form-group @error('name') has-error @enderror">
                         <label>Nama Lengkap</label>
@@ -21,7 +24,7 @@
 
                     <div class="form-group @error('email') has-error @enderror">
                         <label>Email Address</label>
-                        <input type="email" name="email" class="form-control" value="{{ old('email') }}" required>
+                        <input type="email" name="email" class="form-control" value="{{ old('email', $preVerifiedEmail ?? '') }}" required readonly>
                         @error('email') <span class="help-block">{{ $message }}</span> @enderror
                     </div>
 
@@ -56,6 +59,18 @@
                         @error('captcha') <span class="help-block">{{ $message }}</span> @enderror
                     </div>
 
+                    @if(config('services.recaptcha.enabled') && !empty($recaptchaSiteKey))
+                        <div class="form-group">
+                            <label>Verifikasi Online (Google reCAPTCHA)</label>
+                            <div class="g-recaptcha" data-sitekey="{{ $recaptchaSiteKey }}"></div>
+                            <p class="help-block">Jika tidak tersedia, sistem memakai captcha offline.</p>
+                        </div>
+                    @endif
+
+                    <input type="hidden" name="location_status" id="location_status" value="DENIED">
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
+
                     <div class="checkbox @error('terms') has-error @enderror">
                         <label>
                             <input type="checkbox" name="terms" required> Saya setuju dengan Syarat & Ketentuan dan Kebijakan Privasi.
@@ -67,11 +82,33 @@
                     
                     <hr>
                     <p class="text-center">
-                        Sudah punya akun? <a href="{{ route('login') }}">Login disini</a>
+                        Sudah punya akun? <a href="{{ route('login') }}">Login disini</a><br>
+                        Belum verifikasi email? <a href="{{ route('register.preverify') }}">Kirim link aktivasi</a>
                     </p>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+@if(config('services.recaptcha.enabled') && !empty($recaptchaSiteKey))
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+@endif
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!navigator.geolocation) {
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            document.getElementById('location_status').value = 'ALLOW';
+            document.getElementById('latitude').value = position.coords.latitude;
+            document.getElementById('longitude').value = position.coords.longitude;
+        },
+        function() {
+            document.getElementById('location_status').value = 'DENIED';
+        }
+    );
+});
+</script>
 @endsection

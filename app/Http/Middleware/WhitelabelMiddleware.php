@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Schema;
 
 class WhitelabelMiddleware
 {
@@ -18,7 +19,11 @@ class WhitelabelMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $host = $request->getHost();
-        $tenant = Tenant::where('domain', $host)->where('is_active', true)->first();
+        $tenant = null;
+
+        if (Schema::hasTable('tenants')) {
+            $tenant = Tenant::where('domain', $host)->where('is_active', true)->first();
+        }
 
         if (!$tenant) {
             // Fallback or 404. For dev, maybe localhost defaults to a dummy tenant

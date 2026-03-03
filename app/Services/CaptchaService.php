@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Session;
 
 class CaptchaService
@@ -19,9 +21,36 @@ class CaptchaService
         return "Berapa hasil dari $num1 $operator $num2?";
     }
 
-    public function verify($input)
+    public function verify(Request $request): bool
     {
+        if ((bool) config('services.recaptcha.enabled')) {
+            $token = $request->input('g-recaptcha-response');
+
+            if (!empty($token)) {
+                try {
+                    $response = Http::asForm()->timeout(4)->post(
+                        config('services.recaptcha.verify_url'),
+                        [
+                            'secret' => config('services.recaptcha.secret_key'),
+                            'response' => $token,
+                            'remoteip' => $request->ip(),
+                        ]
+                    );
+
+                    if ((bool) data_get($response->json(), 'success', false)) {
+                        return true;
+                    }
+                } catch (\Throwable) {
+                    // Fallback to offline captcha
+                }
+            }
+        }
+
+        if (!(bool) env('CAPTCHA_OFFLINE_ENABLED', true)) {
+            return false;
+        }
+
         $expected = Session::get('captcha_result');
-        return (int)$input === (int)$expected;
+        return (int) $request->input('captcha') === (int) $expected;
     }
 }

@@ -2,17 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Permission as SpatiePermission;
 
-class Permission extends Model
+class Permission extends SpatiePermission
 {
-    use HasFactory;
-
-    protected $fillable = ['name', 'guard_name'];
-
-    public function roles()
+    protected static function booted(): void
     {
-        return $this->belongsToMany(Role::class);
+        static::creating(function (Permission $permission) {
+            if (empty($permission->guard_name)) {
+                $permission->guard_name = 'web';
+            }
+        });
     }
 }

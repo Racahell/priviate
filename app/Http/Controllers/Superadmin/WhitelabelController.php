@@ -4,10 +4,15 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class WhitelabelController extends Controller
 {
+    public function __construct(private readonly AuditService $auditService)
+    {
+    }
+
     public function index()
     {
         // Get current tenant based on domain or first one for management
@@ -27,7 +32,9 @@ class WhitelabelController extends Controller
             'footer_content' => 'nullable|string',
         ]);
 
+        $old = $tenant->toArray();
         $tenant->update($validated);
+        $this->auditService->log('UPDATE', $tenant, $old, $tenant->toArray());
 
         // Clear cache if tenant settings are cached
         // Cache::forget("tenant_{$tenant->domain}");

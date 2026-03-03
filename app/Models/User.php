@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -33,6 +34,13 @@ class User extends Authenticatable
         'postal_code',
         'latitude',
         'longitude',
+        'created_by',
+        'updated_by',
+        'deleted_by',
+        'created_ip',
+        'updated_ip',
+        'deleted_ip',
+        'is_deleted',
     ];
 
     /**
@@ -59,6 +67,7 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
+            'is_deleted' => 'boolean',
         ];
     }
 
