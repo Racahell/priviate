@@ -249,11 +249,12 @@ class SystemManagementController extends Controller
             ['code' => 'tutor_wallet', 'label' => 'Dompet & Honor', 'route_name' => 'tutor.wallet', 'sort_order' => 19],
             ['code' => 'superadmin_packages', 'label' => 'Paket', 'route_name' => 'superadmin.modules.packages', 'sort_order' => 20],
             ['code' => 'superadmin_subjects', 'label' => 'Mapel', 'route_name' => 'superadmin.modules.subjects', 'sort_order' => 21],
-            ['code' => 'superadmin_users', 'label' => 'User', 'route_name' => 'superadmin.modules.users', 'sort_order' => 22],
-            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 23],
-            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 24],
-            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 25],
-            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 26],
+            ['code' => 'superadmin_sessions', 'label' => 'Sesi', 'route_name' => 'superadmin.modules.sessions', 'sort_order' => 22],
+            ['code' => 'superadmin_users', 'label' => 'User', 'route_name' => 'superadmin.modules.users', 'sort_order' => 23],
+            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 24],
+            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 25],
+            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 26],
+            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 27],
         ];
 
         $activeCodes = collect($menus)->pluck('code')->all();

@@ -84,6 +84,7 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
         Route::post('/sessions', [PortalController::class, 'adminSessionsStore'])->name('sessions.store');
         Route::get('/modules/packages', [ModuleDataController::class, 'index'])->defaults('module', 'packages')->name('modules.packages');
         Route::get('/modules/subjects', [ModuleDataController::class, 'index'])->defaults('module', 'subjects')->name('modules.subjects');
+        Route::get('/modules/sessions', [ModuleDataController::class, 'index'])->defaults('module', 'sessions')->name('modules.sessions');
         Route::get('/modules/items', [ModuleDataController::class, 'index'])->defaults('module', 'items')->name('modules.items');
         Route::get('/modules/users', [ModuleDataController::class, 'index'])->defaults('module', 'users')->name('modules.users');
         Route::post('/modules/{module}', [ModuleDataController::class, 'store'])->name('modules.store');
