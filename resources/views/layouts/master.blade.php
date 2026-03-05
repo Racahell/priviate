@@ -9,52 +9,53 @@
     <meta name="keyword" content="Creative, Dashboard, Admin, Template, Theme, Bootstrap, Responsive, Retina, Minimal">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
-    <title>PrivTuition - @yield('title', 'Dashboard')</title>
+    <title>{{ $webName ?? 'PrivTuition' }} - @yield('title', 'Dashboard')</title>
 
-    <!-- Bootstrap CSS -->    
-    <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
-    <!-- bootstrap theme -->
-    <link href="{{ asset('css/bootstrap-theme.css') }}" rel="stylesheet">
-    <!--external css-->
-    <!-- font icon -->
-    <link href="{{ asset('css/elegant-icons-style.css') }}" rel="stylesheet" />
-    <link href="{{ asset('css/font-awesome.min.css') }}" rel="stylesheet" />    
-    <!-- Custom styles -->
-    <link href="{{ asset('css/style.css') }}" rel="stylesheet">
-    <link href="{{ asset('css/style-responsive.css') }}" rel="stylesheet" />
-
-    <!-- HTML5 shim and Respond.js IE8 support of HTML5 -->
-    <!--[if lt IE 9]>
-      <script src="{{ asset('js/html5shiv.js') }}"></script>
-      <script src="{{ asset('js/respond.min.js') }}"></script>
-      <script src="{{ asset('js/lte-ie7.js') }}"></script>
-    <![endif]-->
+    <link href="{{ asset('style.css') }}" rel="stylesheet" />
   </head>
 
-  <body>
+  @php
+      $roleClass = auth()->check() ? 'role-'.str_replace('_', '-', auth()->user()->getRoleNames()->first() ?? 'guest') : 'role-guest';
+      $isGuestLayout = !auth()->check();
+  @endphp
+  <body class="{{ $roleClass }} {{ $isGuestLayout ? 'guest-layout' : 'auth-layout' }}">
   <!-- container section start -->
   <section id="container" class="">
       <!--header start-->
       <header class="header dark-bg">
-            <div class="toggle-nav">
-                <div class="icon-reorder tooltips" data-original-title="Toggle Navigation" data-placement="bottom"><i class="icon_menu"></i></div>
-            </div>
+            @auth
+                <div class="toggle-nav">
+                    <div class="icon-reorder tooltips" data-original-title="Toggle Navigation" data-placement="bottom"><i class="icon_menu"></i></div>
+                </div>
+                <div class="auth-header-copy">
+                    <h2>Good Morning, {{ explode(' ', Auth::user()->name)[0] }}</h2>
+                    <p>Welcome to your PrivTuition dashboard</p>
+                </div>
+            @endauth
 
             <!--logo start-->
-            <a href="/" class="logo">Priv<span class="lite">Tuition</span></a>
+            <a href="{{ auth()->check() ? route('dashboard') : route('home') }}" class="logo">
+                @if(!empty($webLogo))
+                    <img src="{{ asset($webLogo) }}" alt="Logo" style="height:34px; max-width:130px; object-fit:contain;">
+                @else
+                    <span>{{ $webName ?? 'Priv' }}</span>
+                @endif
+            </a>
             <!--logo end-->
 
-            <div class="nav search-row" id="top_menu">
-                <!--  search form start -->
-                <ul class="nav top-menu">                    
-                    <li>
-                        <form class="navbar-form">
-                            <input class="form-control" placeholder="Search" type="text">
-                        </form>
-                    </li>                    
-                </ul>
-                <!--  search form end -->                
-            </div>
+            @auth
+                <div class="nav search-row" id="top_menu">
+                    <!--  search form start -->
+                    <ul class="nav top-menu">
+                        <li>
+                            <form class="navbar-form">
+                                <input class="form-control" placeholder="Search" type="text">
+                            </form>
+                        </li>
+                    </ul>
+                    <!--  search form end -->
+                </div>
+            @endauth
 
             <div class="top-nav notification-row">                
                 <!-- user login dropdown start-->
@@ -65,7 +66,11 @@
                             <li class="dropdown">
                                 <a data-toggle="dropdown" class="dropdown-toggle" href="#">
                                     <span class="profile-ava">
-                                        <img alt="" src="{{ asset('img/avatar1_small.jpg') }}">
+                                        @if(!empty(Auth::user()->avatar))
+                                            <img alt="" src="{{ asset(Auth::user()->avatar) }}">
+                                        @else
+                                            <span class="profile-fallback">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
+                                        @endif
                                     </span>
                                     <span class="username">{{ Auth::user()->name }}</span>
                                     <b class="caret"></b>
@@ -73,23 +78,23 @@
                                 <ul class="dropdown-menu extended logout">
                                     <div class="log-arrow-up"></div>
                                     <li class="eborder-top">
-                                        <a href="#"><i class="icon_profile"></i> My Profile</a>
+                                        <a href="{{ route('profile.edit') }}"><i class="icon_profile"></i> My Profile</a>
                                     </li>
                                     <li>
                                         <form method="POST" action="{{ route('logout') }}">
                                             @csrf
-                                            <button type="submit" style="border:none; background:none; width:100%; text-align:left; padding: 10px 15px;"><i class="icon_key_alt"></i> Log Out</button>
+                                            <button type="submit" class="logout-btn"><i class="icon_key_alt"></i> Log Out</button>
                                         </form>
                                     </li>
                                 </ul>
                             </li>
                         @else
                             <li>
-                                <a href="{{ route('login') }}" class="btn btn-primary btn-sm" style="margin-top: 8px;">Log In</a>
+                                <a href="{{ route('login') }}" class="btn btn-primary btn-sm auth-btn auth-login">Log In</a>
                             </li>
                             @if (Route::has('register'))
                                 <li>
-                                    <a href="{{ route('register.preverify') }}" class="btn btn-info btn-sm" style="margin-top: 8px; margin-left: 5px;">Register</a>
+                                    <a href="{{ route('register') }}" class="btn btn-info btn-sm auth-btn auth-register">Register</a>
                                 </li>
                             @endif
                         @endauth
@@ -99,57 +104,83 @@
             </div>
       </header>      
       <!--header end-->
+      <div class="app-overlay" id="appOverlay"></div>
 
       <!--sidebar start-->
-      <aside>
-          <div id="sidebar"  class="nav-collapse ">
-              <!-- sidebar menu start-->
-              <ul class="sidebar-menu">                
-                  @php
-                    $dynamicMenus = collect();
-                    if (auth()->check() && \Illuminate\Support\Facades\Schema::hasTable('menu_items') && \Illuminate\Support\Facades\Schema::hasTable('menu_permissions')) {
-                        $role = auth()->user()->getRoleNames()->first();
-                        $menuIds = \App\Models\MenuPermission::where('role_name', $role)->where('can_view', true)->pluck('menu_item_id');
-                        $dynamicMenus = \App\Models\MenuItem::whereIn('id', $menuIds)->where('is_active', true)->orderBy('sort_order')->get();
-                    }
-                  @endphp
+      @auth
+        <aside>
+            <div id="sidebar"  class="nav-collapse ">
+                <div class="sidebar-brand">
+                    @if(!empty($webLogo))
+                        <img src="{{ asset($webLogo) }}" alt="Logo">
+                    @else
+                        <span class="sidebar-brand-dot">◼</span>
+                    @endif
+                    <strong>{{ $webName ?? 'PrivTuition' }}</strong>
+                </div>
+                <!-- sidebar menu start-->
+                <ul class="sidebar-menu">
+                    @php
+                      $dynamicMenus = collect();
+                      if (auth()->check() && \Illuminate\Support\Facades\Schema::hasTable('menu_items') && \Illuminate\Support\Facades\Schema::hasTable('menu_permissions')) {
+                          $role = auth()->user()->getRoleNames()->first();
+                          if ($role === 'superadmin') {
+                              $menuQuery = \App\Models\MenuItem::where('is_active', true);
+                              $menuQuery->where(function ($q) {
+                                  $q->whereIn('route_name', ['dashboard', 'profile.edit'])
+                                      ->orWhere('route_name', 'like', 'superadmin.%');
+                              });
+                          } else {
+                              $menuIds = \App\Models\MenuPermission::where('role_name', $role)->where('can_view', true)->pluck('menu_item_id');
+                              $menuQuery = \App\Models\MenuItem::whereIn('id', $menuIds)->where('is_active', true);
+                          }
+                          $dynamicMenus = $menuQuery->orderBy('sort_order')->get();
+                      }
+                    @endphp
 
-                  @if($dynamicMenus->isNotEmpty())
-                    @foreach($dynamicMenus as $menu)
-                        <li class="{{ request()->routeIs($menu->route_name) ? 'active' : '' }}">
-                            <a href="{{ $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#' }}">
-                                <i class="icon_document_alt"></i>
-                                <span>{{ $menu->label }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                  @else
-                    <li class="{{ Request::is('/') ? 'active' : '' }}">
-                        <a class="" href="/">
-                            <i class="icon_house_alt"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </li>
-                  @endif
-              </ul>
-              <!-- sidebar menu end-->
-          </div>
-      </aside>
+                    @if($dynamicMenus->isNotEmpty())
+                      @foreach($dynamicMenus as $menu)
+                          <li class="{{ request()->routeIs($menu->route_name) ? 'active' : '' }}">
+                              <a href="{{ $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#' }}">
+                                  <i class="icon_document_alt"></i>
+                                  <span>{{ $menu->label }}</span>
+                              </a>
+                          </li>
+                      @endforeach
+                      @if(auth()->user()->hasRole('orang_tua') && Route::has('parent.children') && !$dynamicMenus->contains(fn($m) => $m->route_name === 'parent.children'))
+                          <li class="{{ request()->routeIs('parent.children') ? 'active' : '' }}">
+                              <a href="{{ route('parent.children') }}">
+                                  <i class="icon_key"></i>
+                                  <span>Hubungkan Anak</span>
+                              </a>
+                          </li>
+                      @endif
+                    @else
+                      <li class="{{ Request::is('/') ? 'active' : '' }}">
+                          <a class="" href="{{ auth()->check() ? route('dashboard') : route('home') }}">
+                              <i class="icon_house_alt"></i>
+                              <span>Dashboard</span>
+                          </a>
+                      </li>
+                    @endif
+                </ul>
+                <!-- sidebar menu end-->
+            </div>
+        </aside>
+      @endauth
       <!--sidebar end-->
 
       <!--main content start-->
       <section id="main-content">
           <section class="wrapper">
               <!--overview start-->
-              <div class="row">
-                <div class="col-lg-12">
-                    <h3 class="page-header"><i class="fa fa-laptop"></i> @yield('title', 'Dashboard')</h3>
-                    <ol class="breadcrumb">
-                        <li><i class="fa fa-home"></i><a href="/">Home</a></li>
-                        <li><i class="fa fa-laptop"></i>@yield('title', 'Dashboard')</li>
-                    </ol>
+            @auth
+                <div class="row content-heading">
+                    <div class="col-lg-12">
+                        <h3 class="page-header">@yield('title', 'Dashboard')</h3>
+                    </div>
                 </div>
-            </div>
+            @endauth
               
             @yield('content')
             @if(session('status'))
@@ -166,19 +197,68 @@
             @endif
 
           </section>
+          <footer class="app-footer">
+              <div class="text-center">
+                  {{ $webFooter ?: 'PrivTuition' }}
+              </div>
+          </footer>
       </section>
       <!--main content end-->
   </section>
   <!-- container section end -->
-    <!-- javascripts -->
-    <script src="{{ asset('js/jquery.js') }}"></script>
-    <script src="{{ asset('js/bootstrap.min.js') }}"></script>
-    <!-- nice scroll -->
-    <script src="{{ asset('js/jquery.scrollTo.min.js') }}"></script>
-    <script src="{{ asset('js/jquery.nicescroll.js') }}" type="text/javascript"></script>
+    <script>
+      (function () {
+        var toggle = document.querySelector('.toggle-nav');
+        var overlay = document.getElementById('appOverlay');
+        if (!toggle || !overlay) return;
 
-    <!--custome script for all page-->
-    <script src="{{ asset('js/scripts.js') }}"></script>
+        function openSidebar() {
+          document.body.classList.add('sidebar-open');
+        }
+
+        function closeSidebar() {
+          document.body.classList.remove('sidebar-open');
+        }
+
+        toggle.addEventListener('click', function (event) {
+          if (window.innerWidth > 768) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (document.body.classList.contains('sidebar-open')) {
+            closeSidebar();
+          } else {
+            openSidebar();
+          }
+        });
+
+        overlay.addEventListener('click', closeSidebar);
+        window.addEventListener('resize', function () {
+          if (window.innerWidth > 768) {
+            closeSidebar();
+          }
+        });
+
+        document.querySelectorAll('.dropdown-toggle').forEach(function (trigger) {
+          trigger.addEventListener('click', function (event) {
+            event.preventDefault();
+            var menu = trigger.parentElement.querySelector('.dropdown-menu');
+            if (!menu) return;
+            document.querySelectorAll('.dropdown-menu.show').forEach(function (openMenu) {
+              if (openMenu !== menu) openMenu.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+          });
+        });
+
+        document.addEventListener('click', function (event) {
+          if (!event.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu.show').forEach(function (openMenu) {
+              openMenu.classList.remove('show');
+            });
+          }
+        });
+      })();
+    </script>
     @auth
     <script>
       (function () {

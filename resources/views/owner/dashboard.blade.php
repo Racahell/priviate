@@ -3,33 +3,24 @@
 @section('title', 'Dashboard Owner')
 
 @section('content')
-<div class="row">
-    <div class="col-md-3">
-        <div class="panel panel-primary">
-            <div class="panel-heading">Total Siswa</div>
-            <div class="panel-body"><h3>{{ $totalStudents }}</h3></div>
-        </div>
+<div class="grid grid-3">
+    <div class="card">
+        <h3 class="card-title">Total Siswa</h3>
+        <p class="stat-value">{{ $totalStudents }}</p>
     </div>
-    <div class="col-md-3">
-        <div class="panel panel-primary">
-            <div class="panel-heading">Total Guru</div>
-            <div class="panel-body"><h3>{{ $totalTentors }}</h3></div>
-        </div>
+    <div class="card">
+        <h3 class="card-title">Total Guru</h3>
+        <p class="stat-value">{{ $totalTentors }}</p>
     </div>
-    <div class="col-md-3">
-        <div class="panel panel-success">
-            <div class="panel-heading">Revenue</div>
-            <div class="panel-body"><h3>Rp {{ number_format($revenue, 0, ',', '.') }}</h3></div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="panel panel-warning">
-            <div class="panel-heading">Escrow Outstanding</div>
-            <div class="panel-body"><h3>Rp {{ number_format($deferredRevenue, 0, ',', '.') }}</h3></div>
-        </div>
+    <div class="card">
+        <h3 class="card-title">Revenue</h3>
+        <p class="stat-value">Rp {{ number_format($revenue, 0, ',', '.') }}</p>
     </div>
 </div>
-<div class="text-right">
-    <a href="{{ route('owner.reports') }}" class="btn btn-primary">Laporan Grafik</a>
+
+<div class="card section">
+    <h3 class="card-title">Escrow Outstanding</h3>
+    <p class="stat-value">Rp {{ number_format($deferredRevenue, 0, ',', '.') }}</p>
+    <div class="section"><a href="{{ route('owner.reports') }}" class="btn btn-primary">Laporan Grafik</a></div>
 </div>
 @endsection

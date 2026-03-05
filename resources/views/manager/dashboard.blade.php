@@ -3,18 +3,16 @@
 @section('title', 'Dashboard Manager')
 
 @section('content')
-<div class="row">
-    <div class="col-md-6">
-        <div class="panel panel-warning">
-            <div class="panel-heading">Open Disputes</div>
-            <div class="panel-body"><h3>{{ $openDisputes }}</h3></div>
-        </div>
+<div class="grid grid-2">
+    <div class="card">
+        <h3 class="card-title">Open Disputes</h3>
+        <p class="stat-value">{{ $openDisputes }}</p>
+        <p class="card-meta">Perlu ditinjau tim operasional</p>
     </div>
-    <div class="col-md-6">
-        <div class="panel panel-info">
-            <div class="panel-heading">Pending Reschedule</div>
-            <div class="panel-body"><h3>{{ $pendingReschedule }}</h3></div>
-        </div>
+    <div class="card">
+        <h3 class="card-title">Pending Reschedule</h3>
+        <p class="stat-value">{{ $pendingReschedule }}</p>
+        <p class="card-meta">Menunggu approval</p>
     </div>
 </div>
 @endsection

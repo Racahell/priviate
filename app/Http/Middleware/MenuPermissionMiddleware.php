@@ -22,6 +22,9 @@ class MenuPermissionMiddleware
         if (!$user || !Schema::hasTable('menu_items') || !Schema::hasTable('menu_permissions')) {
             return $next($request);
         }
+        if ($user->hasRole('superadmin')) {
+            return $next($request);
+        }
 
         $routeName = $request->route()?->getName();
         if (!$routeName) {

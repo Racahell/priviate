@@ -3,25 +3,34 @@
 @section('title', 'Dashboard Superadmin')
 
 @section('content')
-<div class="row">
-    <div class="col-md-4">
-        <div class="panel panel-success">
-            <div class="panel-heading">DB Status</div>
-            <div class="panel-body"><h3>{{ $dbStatus }}</h3></div>
-        </div>
+<div class="grid grid-3">
+    <div class="card">
+        <h3 class="card-title">DB Status</h3>
+        <p class="stat-value">{{ $dbStatus }}</p>
     </div>
-    <div class="col-md-8">
-        <div class="panel panel-default">
-            <div class="panel-heading">Recent Audit Logs</div>
-            <div class="panel-body">
-                <ul>
+    <div class="card" style="grid-column: span 2;">
+        <h3 class="card-title">Recent Audit Logs</h3>
+        <div class="table-wrap section">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Event</th>
+                        <th>User</th>
+                    </tr>
+                </thead>
+                <tbody>
                     @forelse($recentActivities as $activity)
-                        <li>{{ $activity->created_at }} - {{ $activity->action ?? $activity->event }} - User: {{ $activity->user_id ?? 'SYSTEM' }}</li>
+                        <tr>
+                            <td>{{ $activity->created_at }}</td>
+                            <td>{{ $activity->action ?? $activity->event }}</td>
+                            <td>{{ $activity->user_id ?? 'SYSTEM' }}</td>
+                        </tr>
                     @empty
-                        <li>Belum ada audit log.</li>
+                        <tr><td colspan="3">Belum ada audit log.</td></tr>
                     @endforelse
-                </ul>
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

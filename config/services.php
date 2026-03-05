@@ -51,4 +51,8 @@ return [
         'webhook_url' => env('DISCORD_WEBHOOK_URL'),
     ],
 
+    'auth' => [
+        'login_2fa_enabled' => (bool) env('LOGIN_2FA_ENABLED', false),
+    ],
+
 ];

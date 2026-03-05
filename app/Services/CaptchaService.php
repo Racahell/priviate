@@ -23,10 +23,18 @@ class CaptchaService
 
     public function verify(Request $request): bool
     {
+        $offlineEnabled = (bool) env('CAPTCHA_OFFLINE_ENABLED', true);
+        $connectionStatus = strtolower((string) $request->input('connection_status', 'online'));
+        $isClientOnline = $connectionStatus === 'online';
+
         if ((bool) config('services.recaptcha.enabled')) {
             $token = $request->input('g-recaptcha-response');
 
-            if (!empty($token)) {
+            if ($isClientOnline) {
+                if (empty($token)) {
+                    return false;
+                }
+
                 try {
                     $response = Http::asForm()->timeout(4)->post(
                         config('services.recaptcha.verify_url'),
@@ -41,12 +49,14 @@ class CaptchaService
                         return true;
                     }
                 } catch (\Throwable) {
-                    // Fallback to offline captcha
+                    return false;
                 }
+
+                return false;
             }
         }
 
-        if (!(bool) env('CAPTCHA_OFFLINE_ENABLED', true)) {
+        if (!$offlineEnabled) {
             return false;
         }
 

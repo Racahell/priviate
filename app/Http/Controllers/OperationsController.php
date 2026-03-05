@@ -6,6 +6,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Dispute;
 use App\Models\DisputeAction;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\MaterialReport;
 use App\Models\Package;
 use App\Models\PackagePrice;
@@ -53,6 +54,14 @@ class OperationsController extends Controller
             'issue_date' => now(),
             'due_date' => now()->addDays(1),
             'notes' => "Draft invoice package {$package->name}",
+        ]);
+
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'description' => "Paket: {$package->name} | Snapshot harga saat checkout",
+            'quantity' => 1,
+            'unit_price' => $price->price,
+            'amount' => $price->price,
         ]);
 
         $this->auditService->log('PACKAGE_SELECTED', $invoice, [], [

@@ -11,23 +11,35 @@ class MenuAccessSeeder extends Seeder
     public function run(): void
     {
         $menus = [
-            ['code' => 'dashboard', 'label' => 'Dashboard', 'route_name' => 'home', 'sort_order' => 1],
-            ['code' => 'student_dashboard', 'label' => 'Dashboard Siswa', 'route_name' => 'student.dashboard', 'sort_order' => 2],
-            ['code' => 'tutor_dashboard', 'label' => 'Dashboard Guru', 'route_name' => 'tutor.dashboard', 'sort_order' => 3],
-            ['code' => 'admin_dashboard', 'label' => 'Dashboard Admin', 'route_name' => 'admin.dashboard', 'sort_order' => 4],
-            ['code' => 'manager_dashboard', 'label' => 'Dashboard Manager', 'route_name' => 'manager.dashboard', 'sort_order' => 5],
-            ['code' => 'parent_dashboard', 'label' => 'Dashboard Orang Tua', 'route_name' => 'parent.dashboard', 'sort_order' => 6],
-            ['code' => 'owner_dashboard', 'label' => 'Dashboard Owner', 'route_name' => 'owner.dashboard', 'sort_order' => 7],
-            ['code' => 'owner_reports', 'label' => 'Laporan Owner', 'route_name' => 'owner.reports', 'sort_order' => 8],
-            ['code' => 'superadmin_dashboard', 'label' => 'Dashboard Superadmin', 'route_name' => 'superadmin.dashboard', 'sort_order' => 9],
-            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 10],
-            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 11],
-            ['code' => 'restore_center', 'label' => 'Restore Data', 'route_name' => 'superadmin.restore.center', 'sort_order' => 12],
-            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 13],
-            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 14],
-            ['code' => 'admin_backup_center', 'label' => 'Backup Admin', 'route_name' => 'admin.backup.center', 'sort_order' => 15],
-            ['code' => 'admin_import_center', 'label' => 'Import Admin', 'route_name' => 'admin.import.center', 'sort_order' => 16],
+            ['code' => 'dashboard', 'label' => 'Dashboard', 'route_name' => 'dashboard', 'sort_order' => 1],
+            ['code' => 'profile', 'label' => 'Profil', 'route_name' => 'profile.edit', 'sort_order' => 2],
+            ['code' => 'student_booking', 'label' => 'Booking', 'route_name' => 'student.booking', 'sort_order' => 3],
+            ['code' => 'student_invoices', 'label' => 'Invoices', 'route_name' => 'student.invoices', 'sort_order' => 4],
+            ['code' => 'parent_dashboard', 'label' => 'Dashboard Orang Tua', 'route_name' => 'parent.dashboard', 'sort_order' => 5],
+            ['code' => 'parent_children', 'label' => 'Hubungkan Anak', 'route_name' => 'parent.children', 'sort_order' => 6],
+            ['code' => 'tutor_schedule', 'label' => 'Jadwal Mengajar', 'route_name' => 'tutor.schedule', 'sort_order' => 7],
+            ['code' => 'tutor_wallet', 'label' => 'Dompet & Honor', 'route_name' => 'tutor.wallet', 'sort_order' => 8],
+            ['code' => 'admin_import_center', 'label' => 'Import Admin', 'route_name' => 'admin.import.center', 'sort_order' => 9],
+            ['code' => 'admin_disputes', 'label' => 'Disputes Admin', 'route_name' => 'admin.disputes', 'sort_order' => 10],
+            ['code' => 'admin_monitor', 'label' => 'Monitor Admin', 'route_name' => 'admin.monitor', 'sort_order' => 11],
+            ['code' => 'admin_packages', 'label' => 'Paket', 'route_name' => 'admin.modules.packages', 'sort_order' => 12],
+            ['code' => 'admin_subjects', 'label' => 'Mapel', 'route_name' => 'admin.modules.subjects', 'sort_order' => 13],
+            ['code' => 'admin_items', 'label' => 'Item', 'route_name' => 'admin.modules.items', 'sort_order' => 14],
+            ['code' => 'admin_users', 'label' => 'User', 'route_name' => 'admin.modules.users', 'sort_order' => 15],
+            ['code' => 'owner_reports', 'label' => 'Laporan Owner', 'route_name' => 'owner.reports', 'sort_order' => 16],
+            ['code' => 'owner_financials', 'label' => 'Financial Owner', 'route_name' => 'owner.financials', 'sort_order' => 17],
+            ['code' => 'superadmin_packages', 'label' => 'Paket', 'route_name' => 'superadmin.modules.packages', 'sort_order' => 18],
+            ['code' => 'superadmin_subjects', 'label' => 'Mapel', 'route_name' => 'superadmin.modules.subjects', 'sort_order' => 19],
+            ['code' => 'superadmin_items', 'label' => 'Item', 'route_name' => 'superadmin.modules.items', 'sort_order' => 20],
+            ['code' => 'superadmin_users', 'label' => 'User', 'route_name' => 'superadmin.modules.users', 'sort_order' => 21],
+            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 22],
+            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 23],
+            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 24],
+            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 25],
         ];
+
+        $activeCodes = collect($menus)->pluck('code')->all();
+        MenuItem::whereNotIn('code', $activeCodes)->update(['is_active' => false]);
 
         foreach ($menus as $menuData) {
             $menu = MenuItem::updateOrCreate(['code' => $menuData['code']], $menuData);
@@ -58,12 +70,22 @@ class MenuAccessSeeder extends Seeder
     {
         return match ($role) {
             'superadmin' => true,
-            'owner' => in_array($routeName, ['home', 'owner.dashboard', 'owner.reports'], true),
-            'admin' => in_array($routeName, ['home', 'admin.dashboard', 'admin.backup.center', 'admin.import.center'], true),
-            'manager' => in_array($routeName, ['home', 'manager.dashboard'], true),
-            'tentor' => in_array($routeName, ['home', 'tutor.dashboard'], true),
-            'siswa' => in_array($routeName, ['home', 'student.dashboard'], true),
-            'orang_tua' => in_array($routeName, ['home', 'parent.dashboard'], true),
+            'owner' => in_array($routeName, ['dashboard', 'profile.edit', 'owner.reports', 'owner.financials'], true),
+            'admin' => in_array($routeName, [
+                'dashboard',
+                'profile.edit',
+                'admin.import.center',
+                'admin.disputes',
+                'admin.monitor',
+                'admin.modules.packages',
+                'admin.modules.subjects',
+                'admin.modules.items',
+                'admin.modules.users',
+            ], true),
+            'manager' => in_array($routeName, ['dashboard', 'profile.edit'], true),
+            'tentor' => in_array($routeName, ['dashboard', 'profile.edit', 'tutor.schedule', 'tutor.wallet'], true),
+            'siswa' => in_array($routeName, ['dashboard', 'profile.edit', 'student.booking', 'student.invoices'], true),
+            'orang_tua' => in_array($routeName, ['profile.edit', 'parent.dashboard', 'parent.children'], true),
             default => false,
         };
     }

@@ -3,31 +3,36 @@
 @section('title', 'Dashboard Siswa')
 
 @section('content')
-<div class="row">
-    <div class="col-md-4">
-        <div class="panel panel-primary">
-            <div class="panel-heading">Upcoming Session</div>
-            <div class="panel-body">
-                @if($upcomingSession)
-                    <p>{{ $upcomingSession->scheduled_at }}</p>
-                    <p>Status: {{ $upcomingSession->status }}</p>
-                @else
-                    <p>Tidak ada sesi terjadwal.</p>
-                @endif
-            </div>
-        </div>
+<div class="grid grid-3">
+    <div class="card">
+        <h3 class="card-title">Upcoming Session</h3>
+        @if($upcomingSession)
+            <p class="card-meta">{{ $upcomingSession->scheduled_at }}</p>
+            <p class="badge badge-warning">Status: {{ $upcomingSession->status }}</p>
+        @else
+            <p class="card-meta">Tidak ada sesi terjadwal.</p>
+        @endif
     </div>
-    <div class="col-md-4">
-        <div class="panel panel-info">
-            <div class="panel-heading">Invoice Belum Lunas</div>
-            <div class="panel-body"><h3>{{ $unpaidInvoicesCount }}</h3></div>
-        </div>
+
+    <div class="card">
+        <h3 class="card-title">Invoice Belum Lunas</h3>
+        <p class="stat-value">{{ $unpaidInvoicesCount }}</p>
+        <p class="card-meta">Perlu ditindaklanjuti</p>
     </div>
-    <div class="col-md-4">
-        <div class="panel panel-success">
-            <div class="panel-heading">Saldo Wallet</div>
-            <div class="panel-body"><h3>Rp {{ number_format($walletBalance, 0, ',', '.') }}</h3></div>
-        </div>
+
+    <div class="card">
+        <h3 class="card-title">Saldo Wallet</h3>
+        <p class="stat-value">Rp {{ number_format($walletBalance, 0, ',', '.') }}</p>
+        <p class="card-meta">Saldo aktif siswa</p>
+    </div>
+</div>
+
+<div class="card section">
+    <h3 class="card-title">Aksi Cepat</h3>
+    <div class="grid grid-3">
+        <a href="{{ route('student.booking') }}" class="btn btn-outline">Pilih Paket Belajar</a>
+        <a href="{{ route('student.invoices') }}" class="btn btn-outline">Lihat Invoice</a>
+        <a href="{{ route('profile.edit') }}" class="btn btn-outline">Update Profil</a>
     </div>
 </div>
 @endsection

@@ -25,4 +25,9 @@ class RescheduleRequest extends Model
         'requested_end_at' => 'datetime',
         'approved_at' => 'datetime',
     ];
+
+    public function session()
+    {
+        return $this->belongsTo(TutoringSession::class, 'tutoring_session_id');
+    }
 }

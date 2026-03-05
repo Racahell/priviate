@@ -39,7 +39,7 @@ class AuthController extends Controller
 
     public function showPreVerifyForm()
     {
-        return view('auth.preverify');
+        return redirect()->route('register');
     }
 
     public function sendPreVerification(Request $request)
@@ -87,32 +87,37 @@ class AuthController extends Controller
             ->first();
 
         if (!$verification) {
-            return redirect()->route('register.preverify')->withErrors([
-                'email' => 'Link aktivasi tidak valid atau sudah kedaluwarsa.',
+            return redirect()->route('register')->withErrors([
+                'email' => 'Link verifikasi tidak valid atau sudah kedaluwarsa.',
+            ]);
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            return redirect()->route('register')->withErrors([
+                'email' => 'Data user untuk email ini tidak ditemukan. Silakan daftar ulang.',
             ]);
         }
 
         $verification->update(['used_at' => now()]);
-        $request->session()->put('pre_verified_email', $email);
+        if (!$user->email_verified_at) {
+            $user->forceFill([
+                'email_verified_at' => now(),
+                'is_active' => true,
+            ])->save();
+        }
 
-        $this->auditService->log('EMAIL_PREVERIFY_SUCCESS', null, [], ['email' => $email]);
+        $this->auditService->log('EMAIL_VERIFY_SUCCESS', $user, [], ['email' => $email]);
 
-        return redirect()->route('register')->with('status', 'Email berhasil diverifikasi. Silakan lanjut daftar.');
+        return redirect()->route('login')->with('status', 'Email berhasil diverifikasi. Silakan login.');
     }
 
     public function showRegisterForm(Request $request)
     {
-        $preVerifiedEmail = $request->session()->get('pre_verified_email');
-        if (!$preVerifiedEmail) {
-            return redirect()->route('register.preverify')->withErrors([
-                'email' => 'Silakan verifikasi email terlebih dahulu.',
-            ]);
-        }
-
         $captchaQuestion = $this->captchaService->generate();
         $recaptchaSiteKey = config('services.recaptcha.site_key');
 
-        return view('auth.register', compact('captchaQuestion', 'preVerifiedEmail', 'recaptchaSiteKey'));
+        return view('auth.register', compact('captchaQuestion', 'recaptchaSiteKey'));
     }
 
     public function login(Request $request)
@@ -149,6 +154,14 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
+        if (!$user->email_verified_at) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return back()->withErrors([
+                'email' => 'Email belum diverifikasi. Cek inbox untuk link verifikasi.',
+            ])->withInput();
+        }
         $role = $user->getRoleNames()->first();
         $isHighRole = in_array($role, ['superadmin', 'owner', 'admin'], true);
         $anomalyFlag = $isHighRole && !empty($user->last_login_ip) && $user->last_login_ip !== $request->ip();
@@ -174,7 +187,8 @@ class AuthController extends Controller
             ], 'critical');
         }
 
-        if (in_array($role, ['superadmin', 'owner'], true)) {
+        $login2faEnabled = (bool) config('services.auth.login_2fa_enabled', false);
+        if ($login2faEnabled && in_array($role, ['superadmin', 'owner'], true)) {
             return $this->initiateTwoFactor($request, $user);
         }
 
@@ -307,13 +321,6 @@ class AuthController extends Controller
             'terms' => 'required|accepted',
         ]);
 
-        $preVerifiedEmail = strtolower((string) $request->session()->get('pre_verified_email'));
-        if (strtolower($request->email) !== $preVerifiedEmail) {
-            return back()->withErrors([
-                'email' => 'Email harus sesuai email yang sudah diverifikasi.',
-            ])->withInput();
-        }
-
         if (!$this->captchaService->verify($request)) {
             return back()->withErrors(['captcha' => 'Verifikasi captcha gagal.'])->withInput();
         }
@@ -322,11 +329,15 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => strtolower($request->email),
             'password' => Hash::make($request->password),
-            'email_verified_at' => now(),
+            'email_verified_at' => null,
+            'is_active' => false,
             'created_ip' => $request->ip(),
         ]);
 
         $user->assignRole($request->role);
+        if ($request->role === 'siswa' && empty($user->code)) {
+            $user->forceFill(['code' => $this->generateStudentCode()])->save();
+        }
 
         if (Schema::hasTable('user_consents')) {
             UserConsent::create([
@@ -338,12 +349,24 @@ class AuthController extends Controller
             ]);
         }
 
-        $this->auditService->log('REGISTER', $user, [], $user->toArray(), $this->requestContext($request, false));
+        $token = hash('sha256', Str::uuid()->toString() . '|' . $user->email . '|' . now()->timestamp);
+        RegistrationEmailVerification::create([
+            'email' => $user->email,
+            'token' => $token,
+            'expires_at' => now()->addMinutes(30),
+            'sent_ip' => $request->ip(),
+        ]);
 
-        $request->session()->forget('pre_verified_email');
-        Auth::login($user);
+        $verificationLink = route('register.activate', ['token' => $token, 'email' => $user->email]);
+        SendRawEmailJob::dispatch(
+            $user->email,
+            'Verifikasi Email Akun PrivTuition',
+            "Halo {$user->name},\n\nKlik link berikut untuk verifikasi email akun Anda:\n{$verificationLink}\n\nLink berlaku 30 menit."
+        );
 
-        return $this->redirectByRole($user);
+        $this->auditService->log('REGISTER_PENDING_EMAIL_VERIFICATION', $user, [], $user->toArray(), $this->requestContext($request, false));
+
+        return redirect()->route('login')->with('status', 'Registrasi berhasil. Link verifikasi sudah dikirim ke email Anda.');
     }
 
     public function logout(Request $request)
@@ -412,29 +435,7 @@ class AuthController extends Controller
 
     private function redirectByRole(User $user)
     {
-        if ($user->hasRole('siswa')) {
-            return redirect()->route('student.dashboard');
-        }
-        if ($user->hasRole('tentor')) {
-            return redirect()->route('tutor.dashboard');
-        }
-        if ($user->hasRole('admin')) {
-            return redirect()->route('admin.dashboard');
-        }
-        if ($user->hasRole('manager')) {
-            return redirect()->route('manager.dashboard');
-        }
-        if ($user->hasRole('owner')) {
-            return redirect()->route('owner.dashboard');
-        }
-        if ($user->hasRole('superadmin')) {
-            return redirect()->route('superadmin.dashboard');
-        }
-        if ($user->hasRole('orang_tua')) {
-            return redirect()->route('parent.dashboard');
-        }
-
-        return redirect('/');
+        return redirect()->route('dashboard');
     }
 
     private function logLogin(?User $user, string $status, Request $request, bool $anomalyFlag, array $metadata = []): void
@@ -480,5 +481,15 @@ class AuthController extends Controller
             'os' => $request->header('X-OS'),
             'anomaly_flag' => $anomalyFlag,
         ];
+    }
+
+    private function generateStudentCode(): string
+    {
+        do {
+            $candidate = 'SIS-' . strtoupper(Str::random(8));
+            $exists = User::where('code', $candidate)->exists();
+        } while ($exists);
+
+        return $candidate;
     }
 }

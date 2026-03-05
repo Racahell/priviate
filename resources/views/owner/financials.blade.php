@@ -3,10 +3,10 @@
 @section('title', 'Financial Ledger')
 
 @section('content')
-<div class="panel panel-default">
-    <div class="panel-heading">Jurnal Keuangan</div>
-    <div class="panel-body table-responsive">
-        <table class="table table-striped">
+<div class="card">
+    <h3 class="card-title">Jurnal Keuangan</h3>
+    <div class="table-wrap section">
+        <table>
             <thead>
                 <tr>
                     <th>Tanggal</th>
@@ -27,6 +27,6 @@
             </tbody>
         </table>
     </div>
+    {{ $entries->links() }}
 </div>
-{{ $entries->links() }}
 @endsection

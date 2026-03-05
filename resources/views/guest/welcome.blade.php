@@ -1,108 +1,122 @@
-<!doctype html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>BimbinganKu | Les Privat</title>
-    <link rel="stylesheet" href="{{ asset('landing.css') }}">
-</head>
-<body>
-    <header class="site-header">
-        <nav class="navbar container">
-            <a href="{{ route('home') }}" class="logo">BimbinganKu</a>
-            <ul class="nav-links">
-                <li><a href="#layanan">Layanan</a></li>
-                <li><a href="#keunggulan">Keunggulan</a></li>
-                <li><a href="#kontak">Kontak</a></li>
-            </ul>
-            <a href="{{ route('register.preverify') }}" class="btn btn-nav">Daftar</a>
-        </nav>
-    </header>
+@extends('layouts.master')
 
-    <main>
-        <section class="hero">
-            <div class="container hero-grid">
-                <div>
-                    <p class="tagline">Platform les privat terpercaya</p>
-                    <h1>Belajar Lebih Mudah dan Nyaman dari Rumah</h1>
-                    <p class="hero-desc">
-                        Pilih guru terbaik, atur jadwal fleksibel, dan pantau progres belajar dalam satu aplikasi.
-                    </p>
-                    <div class="hero-actions">
-                        <a href="{{ route('register.preverify') }}" class="btn btn-primary">Daftar Sekarang</a>
-                        <a href="{{ route('login') }}" class="btn btn-secondary">Masuk</a>
-                    </div>
-                </div>
-                <div class="hero-panel">
-                    <p class="hero-panel-title">Kenapa pilih kami?</p>
-                    <p>Kelas privat terjadwal rapi, laporan belajar jelas, dan komunikasi orang tua lebih terkontrol.</p>
-                </div>
-            </div>
-        </section>
+@section('title', 'Beranda')
 
-        <section id="layanan" class="section container">
-            <h2>Layanan</h2>
-            <div class="card-grid">
-                <article class="card">
-                    <h3>Matematika</h3>
-                    <p>Pendampingan konsep dasar sampai latihan soal intensif sesuai jenjang.</p>
-                </article>
-                <article class="card">
-                    <h3>IPA</h3>
-                    <p>Pembelajaran terstruktur untuk Fisika, Kimia, dan Biologi dengan pendekatan praktis.</p>
-                </article>
-                <article class="card">
-                    <h3>Bahasa Inggris</h3>
-                    <p>Program speaking, grammar, reading, dan persiapan ujian sekolah.</p>
-                </article>
-            </div>
-        </section>
-
-        <section id="keunggulan" class="section section-accent">
-            <div class="container">
-                <h2>Keunggulan</h2>
-                <div class="highlight-panel">
-                    <p>Panel Keunggulan</p>
-                    <h3>Belajar terarah, aman, dan terpantau</h3>
-                </div>
-                <div class="feature-grid">
-                    <article class="feature">
-                        <span class="emoji">🏠</span>
-                        <h3>Belajar di Rumah</h3>
-                        <p>Proses belajar lebih fokus tanpa perlu perjalanan jauh.</p>
-                    </article>
-                    <article class="feature">
-                        <span class="emoji">🧭</span>
-                        <h3>Kurikulum Personal</h3>
-                        <p>Materi disesuaikan dengan kebutuhan dan target siswa.</p>
-                    </article>
-                    <article class="feature">
-                        <span class="emoji">🗓️</span>
-                        <h3>Jadwal Fleksibel</h3>
-                        <p>Pilih waktu belajar yang cocok untuk siswa dan orang tua.</p>
-                    </article>
-                    <article class="feature">
-                        <span class="emoji">📈</span>
-                        <h3>Laporan Kemajuan</h3>
-                        <p>Perkembangan belajar dipantau rutin setiap pertemuan.</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer id="kontak" class="site-footer">
-        <div class="container footer-grid">
-            <div>
-                <h3>BimbinganKu</h3>
-                <p>Jl. Pendidikan No. 10, Jakarta</p>
-            </div>
-            <div>
-                <p>Email: info@bimbinganku.id</p>
-                <p>WhatsApp: +62 812-0000-0000</p>
-                <p>Jam Operasional: 08.00 - 20.00 WIB</p>
+@section('content')
+<section class="home-hero">
+    <div class="home-hero-grid">
+        <div class="home-hero-copy">
+            <p class="home-eyebrow">Platform Les Privat Modern</p>
+            <h1>Temukan Tentor Terbaik untuk Target Belajar yang Jelas</h1>
+            <p class="home-lead">
+                Satu platform untuk booking tentor, atur jadwal, monitor progres, dan kelola laporan belajar siswa secara rapi.
+            </p>
+            <div class="home-actions">
+                <a href="{{ route('register') }}" class="btn btn-primary">Mulai Sekarang</a>
             </div>
         </div>
-    </footer>
-</body>
-</html>
+
+        <div class="home-hero-visual">
+            <div class="home-hero-panel">
+                <p class="home-panel-label">Kelas Live Hari Ini</p>
+                <h3>24 sesi aktif berjalan</h3>
+                <ul>
+                    <li><span></span> Matematika SMA - 16:00</li>
+                    <li><span></span> Bahasa Inggris SMP - 17:30</li>
+                    <li><span></span> Fisika UTBK - 19:00</li>
+                </ul>
+            </div>
+            <div class="home-orb home-orb-1"></div>
+            <div class="home-orb home-orb-2"></div>
+            <div class="home-orb home-orb-3"></div>
+        </div>
+    </div>
+
+    <div class="home-stats">
+        <div class="home-stat">
+            <h3>{{ number_format((int) $totalSessions) }}</h3>
+            <p>Sesi Selesai</p>
+        </div>
+        <div class="home-stat">
+            <h3>{{ number_format((int) $totalTentors) }}</h3>
+            <p>Tentor Aktif</p>
+        </div>
+        <div class="home-stat">
+            <h3>{{ number_format((float) $avgRating, 2) }}</h3>
+            <p>Rata-rata Rating</p>
+        </div>
+        <div class="home-stat">
+            <h3>2019</h3>
+            <p>Mulai Operasional</p>
+        </div>
+    </div>
+</section>
+
+<section class="home-section">
+    <div class="home-headline">
+        <h2>Masalah yang Sering Dihadapi Orang Tua & Siswa</h2>
+        <p>Fokus kami adalah menutup gap belajar dengan sistem yang terukur.</p>
+    </div>
+    <div class="home-card-grid">
+        <article class="home-info-card">
+            <h3>Jadwal Belajar Tidak Konsisten</h3>
+            <p>Siswa sulit menjaga ritme belajar karena jadwal tidak terstruktur.</p>
+        </article>
+        <article class="home-info-card">
+            <h3>Materi Tidak Tepat Sasaran</h3>
+            <p>Topik yang dipelajari sering tidak sesuai kebutuhan akademik saat ini.</p>
+        </article>
+        <article class="home-info-card">
+            <h3>Progress Sulit Dipantau</h3>
+            <p>Orang tua kesulitan melihat perkembangan belajar secara periodik.</p>
+        </article>
+    </div>
+</section>
+
+<section class="home-section home-section-soft">
+    <div class="home-headline">
+        <h2>Cara Kami Meningkatkan Hasil Belajar</h2>
+        <p>Tiga langkah praktis untuk memastikan belajar lebih efektif.</p>
+    </div>
+    <div class="home-card-grid">
+        <article class="home-info-card">
+            <h3>Assessment Awal</h3>
+            <p>Kami petakan level siswa dan target belajar sebelum sesi dimulai.</p>
+        </article>
+        <article class="home-info-card">
+            <h3>Rencana Belajar Personal</h3>
+            <p>Tentor menyusun strategi belajar mingguan sesuai kebutuhan siswa.</p>
+        </article>
+        <article class="home-info-card">
+            <h3>Evaluasi Berkala</h3>
+            <p>Setiap sesi tercatat dan dilaporkan agar progres mudah dipantau.</p>
+        </article>
+    </div>
+</section>
+
+<section class="home-section">
+    <div class="home-headline">
+        <h2>Tentor Pilihan</h2>
+        <p>Profil tentor aktif yang siap mendampingi belajar siswa.</p>
+    </div>
+    <div class="home-tutor-grid">
+        @forelse($tutors as $tutor)
+            <article class="home-tutor-card">
+                <div class="home-tutor-avatar">{{ strtoupper(substr($tutor->name, 0, 1)) }}</div>
+                <div>
+                    <h3>{{ $tutor->name }}</h3>
+                    <p>{{ $tutor->email }}</p>
+                </div>
+                <span class="home-status {{ $tutor->is_active ? 'is-active' : 'is-inactive' }}">
+                    {{ $tutor->is_active ? 'Aktif' : 'Nonaktif' }}
+                </span>
+            </article>
+        @empty
+            <article class="home-info-card">
+                <h3>Data tentor belum tersedia</h3>
+                <p>Silakan cek kembali setelah data tentor aktif ditambahkan.</p>
+            </article>
+        @endforelse
+    </div>
+</section>
+@endsection

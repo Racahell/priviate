@@ -3,44 +3,33 @@
 @section('title', 'Import User & Barang')
 
 @section('content')
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
 @php($prefix = $routePrefix ?? 'superadmin')
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="panel panel-default">
-            <div class="panel-heading">Import Users (Admin/Superadmin)</div>
-            <div class="panel-body">
-                <form action="{{ route($prefix . '.import.users') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <input type="file" name="file" class="form-control" required>
-                    <br>
-                    <button class="btn btn-primary" type="submit">Import Users</button>
-                </form>
-            </div>
-        </div>
+<div class="grid grid-2">
+    <div class="card">
+        <h3 class="card-title">Import Users</h3>
+        <p class="card-meta">Upload CSV untuk data user admin/superadmin.</p>
+        <form action="{{ route($prefix . '.import.users') }}" method="POST" enctype="multipart/form-data" class="section">
+            @csrf
+            <input type="file" name="file" class="form-control" required>
+            <div class="section"><button class="btn btn-primary" type="submit">Import Users</button></div>
+        </form>
     </div>
-    <div class="col-md-6">
-        <div class="panel panel-default">
-            <div class="panel-heading">Import Barang</div>
-            <div class="panel-body">
-                <form action="{{ route($prefix . '.import.items') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <input type="file" name="file" class="form-control" required>
-                    <br>
-                    <button class="btn btn-success" type="submit">Import Barang</button>
-                </form>
-            </div>
-        </div>
+    <div class="card">
+        <h3 class="card-title">Import Barang</h3>
+        <p class="card-meta">Upload CSV untuk data item/barang.</p>
+        <form action="{{ route($prefix . '.import.items') }}" method="POST" enctype="multipart/form-data" class="section">
+            @csrf
+            <input type="file" name="file" class="form-control" required>
+            <div class="section"><button class="btn btn-success" type="submit">Import Barang</button></div>
+        </form>
     </div>
 </div>
 
-<div class="panel panel-default">
-    <div class="panel-heading">Riwayat Import</div>
-    <div class="panel-body">
-        <table class="table table-bordered">
+<div class="card section">
+    <h3 class="card-title">Riwayat Import</h3>
+    <div class="table-wrap">
+        <table>
             <thead>
                 <tr>
                     <th>ID</th>
@@ -56,7 +45,7 @@
                     <tr>
                         <td>{{ $job->id }}</td>
                         <td>{{ $job->type }}</td>
-                        <td>{{ $job->status }}</td>
+                        <td><span class="badge {{ in_array(strtolower((string) $job->status), ['success', 'completed', 'done'], true) ? 'badge-success' : 'badge-warning' }}">{{ $job->status }}</span></td>
                         <td>{{ $job->total_rows }}</td>
                         <td>{{ $job->success_rows }}</td>
                         <td>{{ $job->failed_rows }}</td>
@@ -66,7 +55,7 @@
                 @endforelse
             </tbody>
         </table>
-        {{ $jobs->links() }}
     </div>
+    {{ $jobs->links() }}
 </div>
 @endsection

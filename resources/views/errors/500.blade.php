@@ -4,22 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>500 - Terjadi Kesalahan</title>
-    <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #f7f4ea; color: #2d2d2d; }
-        .wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-        .card { max-width: 560px; width: 100%; background: #fff; border: 1px solid #ded7c6; border-radius: 12px; padding: 24px; text-align: center; }
-        h1 { margin: 0; font-size: 54px; color: #af3e3e; }
-        p { color: #555; }
-        a { display: inline-block; margin-top: 12px; background: #2f6f57; color: #fff; text-decoration: none; padding: 10px 14px; border-radius: 8px; }
-    </style>
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
 </head>
-<body>
-    <div class="wrap">
-        <div class="card">
+<body class="error-page">
+    <div class="error-wrap">
+        <div class="error-card">
             <h1>500</h1>
             <h2>Terjadi Kesalahan Sistem</h2>
             <p>Silakan coba lagi beberapa saat, atau hubungi admin jika masalah berlanjut.</p>
-            <a href="{{ route('home') }}">Kembali ke Beranda</a>
+            <a href="{{ route('home') }}" class="btn btn-primary">Kembali ke Beranda</a>
         </div>
     </div>
 </body>

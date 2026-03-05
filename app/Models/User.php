@@ -22,6 +22,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'name',
         'email',
+        'code',
+        'parent_id',
         'password',
         'is_active',
         'last_login_at',
@@ -69,6 +71,16 @@ class User extends Authenticatable implements MustVerifyEmail
             'longitude' => 'decimal:8',
             'is_deleted' => 'boolean',
         ];
+    }
+
+    public function parentUser()
+    {
+        return $this->belongsTo(User::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(User::class, 'parent_id');
     }
 
     public function tentorProfile()

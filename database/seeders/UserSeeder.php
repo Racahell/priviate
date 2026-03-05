@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
@@ -15,67 +14,65 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $password = Hash::make('password'); // Default password for all
-
         // 1. Superadmin
-        $superadmin = User::firstOrCreate(
-            ['email' => 'superadmin@example.com'],
+        $superadmin = User::updateOrCreate(
+            ['email' => 'a@g'],
             [
-                'name' => 'Super Admin',
-                'password' => $password,
+                'name' => 'a',
+                'password' => 'a',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $superadmin->assignRole('superadmin');
+        $superadmin->syncRoles(['superadmin']);
 
         // 2. Admin
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+        $admin = User::updateOrCreate(
+            ['email' => 'b@g'],
             [
-                'name' => 'Admin Cabang',
-                'password' => $password,
+                'name' => 'b',
+                'password' => 'b',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $admin->assignRole('admin');
+        $admin->syncRoles(['admin']);
 
         // 3. Owner
-        $owner = User::firstOrCreate(
-            ['email' => 'owner@example.com'],
+        $owner = User::updateOrCreate(
+            ['email' => 'c@g'],
             [
-                'name' => 'Business Owner',
-                'password' => $password,
+                'name' => 'c',
+                'password' => 'c',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $owner->assignRole('owner');
+        $owner->syncRoles(['owner']);
 
         // 4. Manager Operasional
-        $manager = User::firstOrCreate(
-            ['email' => 'manager@example.com'],
+        $manager = User::updateOrCreate(
+            ['email' => 'd@g'],
             [
-                'name' => 'Manager Operasional',
-                'password' => $password,
+                'name' => 'd',
+                'password' => 'd',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $manager->assignRole('manager');
+        $manager->syncRoles(['manager']);
 
         // 5. Tentor
-        $tentor = User::firstOrCreate(
-            ['email' => 'tentor@example.com'],
+        $tentor = User::updateOrCreate(
+            ['email' => 'e@g'],
             [
-                'name' => 'Tentor Profesional',
-                'password' => $password,
+                'name' => 'e',
+                'password' => 'e',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $tentor->assignRole('tentor');
+        $tentor->syncRoles(['tentor']);
         
         // Create Wallet for Tentor
         if (!$tentor->wallet) {
@@ -88,27 +85,27 @@ class UserSeeder extends Seeder
         }
 
         // 6. Siswa
-        $siswa = User::firstOrCreate(
-            ['email' => 'siswa@example.com'],
+        $siswa = User::updateOrCreate(
+            ['email' => 'f@g'],
             [
-                'name' => 'Siswa Rajin',
-                'password' => $password,
+                'name' => 'f',
+                'password' => 'f',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $siswa->assignRole('siswa');
+        $siswa->syncRoles(['siswa']);
 
         // 7. Orang Tua
-        $orangTua = User::firstOrCreate(
-            ['email' => 'orangtua@example.com'],
+        $orangTua = User::updateOrCreate(
+            ['email' => 'g@g'],
             [
-                'name' => 'Orang Tua',
-                'password' => $password,
+                'name' => 'g',
+                'password' => 'g',
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]
         );
-        $orangTua->assignRole('orang_tua');
+        $orangTua->syncRoles(['orang_tua']);
     }
 }
