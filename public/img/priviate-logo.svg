@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="120" viewBox="0 0 420 120" role="img" aria-label="PriviAte">
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2ca7e0"/>
+      <stop offset="100%" stop-color="#0b6fc1"/>
+    </linearGradient>
+    <linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffb726"/>
+      <stop offset="100%" stop-color="#f28a00"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="420" height="120" fill="none"/>
+  <g transform="translate(8,14)">
+    <circle cx="42" cy="46" r="34" fill="url(#gBlue)"/>
+    <path d="M21 31 L63 31 L57 50 L27 50 Z" fill="#ffffff" opacity="0.92"/>
+    <circle cx="34" cy="43" r="6" fill="#0a3c73"/>
+    <circle cx="50" cy="43" r="6" fill="#0a3c73"/>
+    <path d="M42 47 L47 56 L37 56 Z" fill="url(#gOrange)"/>
+    <path d="M14 17 L5 11 L10 24 Z" fill="#0a3c73"/>
+    <path d="M70 17 L79 11 L74 24 Z" fill="#0a3c73"/>
+  </g>
+  <text x="92" y="70" font-family="Segoe UI, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="0.5">
+    <tspan fill="url(#gBlue)">Privi</tspan><tspan fill="url(#gOrange)">Ate</tspan>
+  </text>
+  <text x="96" y="98" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2" fill="#0b2e55">
+    LEARNING MADE PERSONAL
+  </text>
+</svg>
