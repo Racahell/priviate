@@ -31,6 +31,20 @@ class MenuPermissionMiddleware
             return $next($request);
         }
 
+        // Never block core entry/profile routes for authenticated users.
+        if (in_array($routeName, ['dashboard', 'profile.edit', 'profile.update', 'location.consent'], true)) {
+            return $next($request);
+        }
+
+        // Fallback: keep core parent portal accessible even if legacy menu permissions
+        // were saved with can_view=false.
+        if (
+            $user->hasRole('orang_tua')
+            && in_array($routeName, ['dashboard', 'parent.dashboard', 'parent.children', 'parent.children.link', 'parent.schedule', 'parent.reschedule', 'parent.disputes'], true)
+        ) {
+            return $next($request);
+        }
+
         $menu = MenuItem::where('route_name', $routeName)->where('is_active', true)->first();
         if (!$menu) {
             return $next($request);

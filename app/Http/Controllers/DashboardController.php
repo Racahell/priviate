@@ -23,6 +23,10 @@ class DashboardController extends Controller
         $role = $user?->getRoleNames()->first();
         $period = (string) $request->query('period', 'monthly');
 
+        if ($role === 'orang_tua') {
+            return redirect()->route('parent.dashboard');
+        }
+
         $analytics = null;
         if (in_array($role, ['superadmin', 'admin', 'owner'], true)) {
             $analytics = $this->analyticsService->build($period);
@@ -48,30 +52,31 @@ class DashboardController extends Controller
                 ['label' => 'Backup', 'route' => 'superadmin.backup.center'],
             ],
             'admin' => [
-                ['label' => 'Sesi', 'route' => 'admin.sessions'],
-                ['label' => 'Import Data', 'route' => 'admin.import.center'],
+                ['label' => 'Setting Web', 'route' => 'admin.settings'],
+                ['label' => 'Laporan Keuangan', 'route' => 'admin.reports'],
+                ['label' => 'Sesi', 'route' => 'admin.modules.sessions'],
                 ['label' => 'Kritik', 'route' => 'admin.disputes'],
                 ['label' => 'Monitor', 'route' => 'admin.monitor'],
             ],
             'owner' => [
-                ['label' => 'Laporan', 'route' => 'owner.reports'],
-                ['label' => 'Financials', 'route' => 'owner.financials'],
+                ['label' => 'Laporan Keuangan', 'route' => 'owner.reports'],
             ],
             'siswa' => [
+                ['label' => 'Paket', 'route' => 'student.packages'],
                 ['label' => 'Booking', 'route' => 'student.booking'],
                 ['label' => 'Invoices', 'route' => 'student.invoices'],
+                ['label' => 'Profil', 'route' => 'profile.edit'],
             ],
             'tentor' => [
                 ['label' => 'Jadwal', 'route' => 'tutor.schedule'],
                 ['label' => 'Wallet', 'route' => 'tutor.wallet'],
             ],
-            'manager' => [
-                ['label' => 'Kritik', 'route' => 'manager.disputes'],
-                ['label' => 'Monitor', 'route' => 'manager.monitor'],
-            ],
             'orang_tua' => [
-                ['label' => 'Dashboard Orang Tua', 'route' => 'parent.dashboard'],
+                ['label' => 'Dashboard', 'route' => 'parent.dashboard'],
                 ['label' => 'Hubungkan Anak', 'route' => 'parent.children'],
+                ['label' => 'Jadwal Anak', 'route' => 'parent.schedule'],
+                ['label' => 'Reschedule', 'route' => 'parent.reschedule'],
+                ['label' => 'Kritik', 'route' => 'parent.disputes'],
             ],
             default => [],
         };
@@ -101,10 +106,6 @@ class DashboardController extends Controller
                     ->count(),
                 'pending_disputes' => Dispute::where('status', 'DISPUTE_OPEN')->count(),
             ],
-            'manager' => [
-                'open_disputes' => Dispute::where('status', 'DISPUTE_OPEN')->count(),
-                'pending_reschedule' => RescheduleRequest::where('status', 'PENDING')->count(),
-            ],
             'orang_tua' => [
                 'children_count' => User::where('parent_id', $userId)
                     ->whereHas('roles', fn ($query) => $query->where('name', 'siswa'))
@@ -112,9 +113,9 @@ class DashboardController extends Controller
                 'completed_sessions' => TutoringSession::whereHas('student', function ($query) use ($userId) {
                     $query->where('parent_id', $userId);
                 })->where('status', 'completed')->count(),
-                'unpaid_invoices' => Invoice::whereHas('user', function ($query) use ($userId) {
+                'pending_reschedule' => RescheduleRequest::whereIn('status', ['PENDING', 'pending'])->whereHas('session.student', function ($query) use ($userId) {
                     $query->where('parent_id', $userId);
-                })->where('status', 'unpaid')->count(),
+                })->count(),
             ],
             'admin' => [
                 'pending_tentors' => User::role('tentor')->where('is_active', false)->count(),

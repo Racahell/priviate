@@ -50,19 +50,7 @@ class UserSeeder extends Seeder
         );
         $owner->syncRoles(['owner']);
 
-        // 4. Manager Operasional
-        $manager = User::updateOrCreate(
-            ['email' => 'd@g'],
-            [
-                'name' => 'd',
-                'password' => 'd',
-                'email_verified_at' => now(),
-                'is_active' => true,
-            ]
-        );
-        $manager->syncRoles(['manager']);
-
-        // 5. Tentor
+        // 4. Tentor
         $tentor = User::updateOrCreate(
             ['email' => 'e@g'],
             [
@@ -84,7 +72,7 @@ class UserSeeder extends Seeder
             ]);
         }
 
-        // 6. Siswa
+        // 5. Siswa
         $siswa = User::updateOrCreate(
             ['email' => 'f@g'],
             [
@@ -96,7 +84,7 @@ class UserSeeder extends Seeder
         );
         $siswa->syncRoles(['siswa']);
 
-        // 7. Orang Tua
+        // 6. Orang Tua
         $orangTua = User::updateOrCreate(
             ['email' => 'g@g'],
             [

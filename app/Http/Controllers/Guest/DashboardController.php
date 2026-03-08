@@ -17,10 +17,19 @@ class DashboardController extends Controller
         $totalTentors = 0;
         $avgRating = 0;
         $tutors = collect();
+        $liveSessions = collect();
+        $liveSessionCount = 0;
 
         if (Schema::hasTable('tutoring_sessions')) {
             $totalSessions = TutoringSession::where('status', 'completed')->count();
             $avgRating = TutoringSession::avg('rating') ?? 0;
+            $liveSessionCount = TutoringSession::where('status', 'ongoing')->count();
+            $liveSessions = TutoringSession::query()
+                ->with('subject:id,name,level')
+                ->where('status', 'ongoing')
+                ->orderBy('scheduled_at')
+                ->take(3)
+                ->get();
         }
 
         if (
@@ -37,6 +46,6 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        return view('guest.welcome', compact('totalSessions', 'totalTentors', 'avgRating', 'tutors'));
+        return view('guest.welcome', compact('totalSessions', 'totalTentors', 'avgRating', 'tutors', 'liveSessions', 'liveSessionCount'));
     }
 }

@@ -6,8 +6,8 @@
 <div class="card">
     <h3 class="card-title">Verifikasi Tentor Pending</h3>
     <p class="card-meta">Daftar tentor yang menunggu validasi administrasi.</p>
-
-    <div class="table-wrap section">
+    @include('components.pagination-controls', ['paginator' => $tentors, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
+<div class="table-wrap section">
         <table>
             <thead>
                 <tr>
@@ -33,6 +33,8 @@
             </tbody>
         </table>
     </div>
-    {{ $tentors->links() }}
 </div>
+
+    @include('components.pagination-controls', ['paginator' => $tentors, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
+

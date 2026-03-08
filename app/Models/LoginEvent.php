@@ -31,4 +31,9 @@ class LoginEvent extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

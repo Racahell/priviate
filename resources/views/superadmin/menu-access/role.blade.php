@@ -25,14 +25,19 @@
                     <tr><th>Menu</th><th>View</th><th>Create</th><th>Update</th><th>Delete</th></tr>
                 </thead>
                 <tbody>
-                    @foreach($menuItems as $menu)
-                        @php($perm = $permissions[$menu->id] ?? null)
+                    @foreach($menuGroups as $idx => $group)
                         <tr>
-                            <td>{{ $menu->label }}<br><small>{{ $menu->route_name }}</small></td>
-                            <td><input type="checkbox" data-key="can_view" name="permissions[{{ $menu->id }}][can_view]" {{ $perm && $perm->can_view ? 'checked' : '' }}></td>
-                            <td><input type="checkbox" data-key="can_create" name="permissions[{{ $menu->id }}][can_create]" {{ $perm && $perm->can_create ? 'checked' : '' }}></td>
-                            <td><input type="checkbox" data-key="can_update" name="permissions[{{ $menu->id }}][can_update]" {{ $perm && $perm->can_update ? 'checked' : '' }}></td>
-                            <td><input type="checkbox" data-key="can_delete" name="permissions[{{ $menu->id }}][can_delete]" {{ $perm && $perm->can_delete ? 'checked' : '' }}></td>
+                            <td>
+                                <strong>{{ $group['label'] }}</strong><br>
+                                <small>{{ implode(', ', $group['route_names']) }}</small>
+                                @foreach($group['menu_ids'] as $menuId)
+                                    <input type="hidden" name="permissions_group[{{ $idx }}][menu_ids][]" value="{{ $menuId }}">
+                                @endforeach
+                            </td>
+                            <td><input type="checkbox" data-key="can_view" name="permissions_group[{{ $idx }}][can_view]" {{ $group['can_view'] ? 'checked' : '' }}></td>
+                            <td><input type="checkbox" data-key="can_create" name="permissions_group[{{ $idx }}][can_create]" {{ $group['can_create'] ? 'checked' : '' }}></td>
+                            <td><input type="checkbox" data-key="can_update" name="permissions_group[{{ $idx }}][can_update]" {{ $group['can_update'] ? 'checked' : '' }}></td>
+                            <td><input type="checkbox" data-key="can_delete" name="permissions_group[{{ $idx }}][can_delete]" {{ $group['can_delete'] ? 'checked' : '' }}></td>
                         </tr>
                     @endforeach
                 </tbody>

@@ -5,7 +5,8 @@
 @section('content')
 <div class="card">
     <h3 class="card-title">Audit Logs (Full Read)</h3>
-    <div class="table-wrap section">
+    @include('components.pagination-controls', ['paginator' => $logs, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
+<div class="table-wrap section">
         <table>
             <thead>
                 <tr>
@@ -33,6 +34,8 @@
             </tbody>
         </table>
     </div>
-    {{ $logs->links() }}
 </div>
+
+    @include('components.pagination-controls', ['paginator' => $logs, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
+

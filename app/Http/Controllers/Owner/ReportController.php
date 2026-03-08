@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\OperationalCostEntry;
 use App\Models\TeacherPayout;
+use App\Models\WebSetting;
 use App\Services\AuditService;
 use App\Services\DiscordAlertService;
 use Illuminate\Http\Request;
@@ -28,6 +29,8 @@ class ReportController extends Controller
         $dataset = $this->buildDataset($period, $from, $to);
 
         return view('owner.reports.index', [
+            'reportRoutePrefix' => $request->routeIs('admin.*') ? 'admin' : 'owner',
+            'canInputOperationalCost' => $request->routeIs('admin.*'),
             'period' => $period,
             'chartType' => $chartType,
             'from' => $from,
@@ -43,6 +46,10 @@ class ReportController extends Controller
             'totalIncome' => $dataset['totalIncome'],
             'totalExpense' => $dataset['totalExpense'],
             'totalProfit' => $dataset['totalProfit'],
+            'incomeStatement' => $dataset['incomeStatement'],
+            'cashFlowStatement' => $dataset['cashFlowStatement'],
+            'expenseBreakdown' => $dataset['expenseBreakdown'],
+            'generatedAt' => now(),
         ]);
     }
 
@@ -57,6 +64,8 @@ class ReportController extends Controller
 
     public function storeOperationalCost(Request $request)
     {
+        abort_unless($request->user()?->hasAnyRole(['admin', 'superadmin']), 403);
+
         $validated = $request->validate([
             'cost_date' => 'required|date',
             'category' => 'required|string|max:100',
@@ -84,22 +93,90 @@ class ReportController extends Controller
 
     public function export(Request $request)
     {
+        $routePrefix = $request->routeIs('admin.*') ? 'admin' : 'owner';
         $period = $request->query('period', 'monthly');
-        $filename = "report_{$period}_" . now()->format('Ymd_His') . '.csv';
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $format = (string) $request->query('format', 'csv');
+        $dataset = $this->buildDataset($period, $from, $to);
 
-        $rows = Invoice::query()
-            ->select('invoice_number', 'issue_date', 'total_amount', 'status')
-            ->orderBy('issue_date', 'desc')
-            ->limit(5000)
-            ->get();
+        $this->auditService->log('REPORT_EXPORTED', null, [], [
+            'period' => $period,
+            'rows' => count($dataset['labels'] ?? []),
+            'format' => $format,
+            'from' => $from,
+            'to' => $to,
+        ]);
 
-        $this->auditService->log('REPORT_EXPORTED', null, [], ['period' => $period, 'rows' => $rows->count()]);
+        if ($format === 'excel') {
+            $filename = "laporan_keuangan_{$period}_" . now()->format('Ymd_His') . '.xls';
+            return response()->streamDownload(function () use ($dataset) {
+                $handle = fopen('php://output', 'w');
+                fwrite($handle, "LAPORAN LABA RUGI\n");
+                fwrite($handle, "Pos\tNilai\n");
+                foreach ($dataset['incomeStatement'] as $line) {
+                    fwrite($handle, "{$line['label']}\t{$line['amount']}\n");
+                }
+                fwrite($handle, "\nLAPORAN ARUS KAS\n");
+                fwrite($handle, "Pos\tNilai\n");
+                foreach ($dataset['cashFlowStatement'] as $line) {
+                    fwrite($handle, "{$line['label']}\t{$line['amount']}\n");
+                }
+                fwrite($handle, "\nRINCIAN BEBAN OPERASIONAL\n");
+                fwrite($handle, "Kategori\tNilai\n");
+                foreach ($dataset['expenseBreakdown'] as $line) {
+                    fwrite($handle, "{$line['category']}\t{$line['total']}\n");
+                }
+                fclose($handle);
+            }, $filename, ['Content-Type' => 'application/vnd.ms-excel']);
+        }
 
-        return response()->streamDownload(function () use ($rows) {
+        if (in_array($format, ['pdf', 'print'], true)) {
+            $setting = WebSetting::query()->first();
+            $viewData = [
+                'reportRoutePrefix' => $routePrefix,
+                'canInputOperationalCost' => $request->routeIs('admin.*'),
+                'dataset' => $dataset,
+                'period' => $period,
+                'from' => $from,
+                'to' => $to,
+                'generatedAt' => now(),
+                'autoPrint' => $format === 'print',
+                'logoUrl' => $setting?->logo_url,
+                'siteName' => $setting?->site_name ?: 'Laporan Keuangan',
+            ];
+
+            if ($format === 'pdf') {
+                $filename = "laporan_keuangan_{$period}_" . now()->format('Ymd_His') . '.pdf';
+                $pdf = app('dompdf.wrapper');
+                $pdf->setPaper('a4', 'portrait');
+                $pdf->loadView('owner.reports.export-pdf', $viewData);
+                return $pdf->download($filename);
+            }
+
+            return view('owner.reports.export-pdf', $viewData);
+        }
+
+        $filename = "laporan_keuangan_{$period}_" . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($dataset) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Invoice Number', 'Issue Date', 'Total Amount', 'Status']);
-            foreach ($rows as $row) {
-                fputcsv($handle, [$row->invoice_number, $row->issue_date, $row->total_amount, $row->status]);
+            fputcsv($handle, ['LAPORAN LABA RUGI']);
+            fputcsv($handle, ['Pos', 'Nilai']);
+            foreach ($dataset['incomeStatement'] as $line) {
+                fputcsv($handle, [$line['label'], $line['amount']]);
+            }
+            fputcsv($handle, []);
+            fputcsv($handle, ['LAPORAN ARUS KAS']);
+            fputcsv($handle, ['Pos', 'Nilai']);
+            foreach ($dataset['cashFlowStatement'] as $line) {
+                fputcsv($handle, [$line['label'], $line['amount']]);
+            }
+            fputcsv($handle, []);
+            fputcsv($handle, ['RINCIAN BEBAN OPERASIONAL']);
+            fputcsv($handle, ['Kategori', 'Nilai']);
+            foreach ($dataset['expenseBreakdown'] as $line) {
+                fputcsv($handle, [$line['category'], $line['total']]);
             }
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);
@@ -153,6 +230,21 @@ class ReportController extends Controller
             ->orderBy('bucket')
             ->get();
 
+        $expenseBreakdownQuery = OperationalCostEntry::query()
+            ->select('category', DB::raw('sum(amount) as total'))
+            ->groupBy('category')
+            ->orderByDesc('total');
+        if ($from) {
+            $expenseBreakdownQuery->whereDate('cost_date', '>=', $from);
+        }
+        if ($to) {
+            $expenseBreakdownQuery->whereDate('cost_date', '<=', $to);
+        }
+        $expenseBreakdown = $expenseBreakdownQuery->get()->map(fn ($row) => [
+            'category' => (string) ($row->category ?: 'Lainnya'),
+            'total' => (float) $row->total,
+        ])->values();
+
         $revenueMap = $revenueData->pluck('total', 'bucket')->map(fn ($v) => (float) $v);
         $payoutMap = $payoutData->pluck('total', 'bucket')->map(fn ($v) => (float) $v);
         $costMap = $costData->pluck('total', 'bucket')->map(fn ($v) => (float) $v);
@@ -180,6 +272,35 @@ class ReportController extends Controller
         $gainSeries = $profitSeries->map(fn ($v) => (float) max(0, $v))->values();
         $lossSeries = $profitSeries->map(fn ($v) => (float) max(0, -$v))->values();
 
+        $totalIncome = (float) $revenueSeries->sum();
+        $totalPayout = (float) $payoutSeries->sum();
+        $totalOperationalCost = (float) $costSeries->sum();
+        $totalExpense = (float) $expenseSeries->sum();
+        $totalProfit = (float) $profitSeries->sum();
+        $estimatedTax = (float) max(0, $totalProfit * 0.1);
+        $profitAfterTax = (float) ($totalProfit - $estimatedTax);
+
+        $incomeStatement = [
+            ['label' => 'Pendapatan Jasa Belajar', 'amount' => $totalIncome],
+            ['label' => 'Beban Honor Tutor', 'amount' => -$totalPayout],
+            ['label' => 'Beban Operasional', 'amount' => -$totalOperationalCost],
+            ['label' => 'Laba Sebelum Pajak', 'amount' => $totalProfit],
+            ['label' => 'Estimasi Pajak (10%)', 'amount' => -$estimatedTax],
+            ['label' => 'Laba Bersih Setelah Pajak', 'amount' => $profitAfterTax],
+        ];
+
+        $openingCash = 0.0;
+        $netOperatingCash = (float) ($totalIncome - $totalPayout - $totalOperationalCost);
+        $closingCash = (float) ($openingCash + $netOperatingCash);
+        $cashFlowStatement = [
+            ['label' => 'Kas dari Pelanggan', 'amount' => $totalIncome],
+            ['label' => 'Kas Dibayar ke Tutor', 'amount' => -$totalPayout],
+            ['label' => 'Kas untuk Beban Operasional', 'amount' => -$totalOperationalCost],
+            ['label' => 'Kas Bersih Operasional', 'amount' => $netOperatingCash],
+            ['label' => 'Kas Awal Periode', 'amount' => $openingCash],
+            ['label' => 'Kas Akhir Periode', 'amount' => $closingCash],
+        ];
+
         return [
             'labels' => $labels,
             'revenueSeries' => $revenueSeries,
@@ -189,9 +310,12 @@ class ReportController extends Controller
             'profitSeries' => $profitSeries,
             'gainSeries' => $gainSeries,
             'lossSeries' => $lossSeries,
-            'totalIncome' => (float) $revenueSeries->sum(),
-            'totalExpense' => (float) $expenseSeries->sum(),
-            'totalProfit' => (float) $profitSeries->sum(),
+            'totalIncome' => $totalIncome,
+            'totalExpense' => $totalExpense,
+            'totalProfit' => $totalProfit,
+            'incomeStatement' => $incomeStatement,
+            'cashFlowStatement' => $cashFlowStatement,
+            'expenseBreakdown' => $expenseBreakdown,
         ];
     }
 

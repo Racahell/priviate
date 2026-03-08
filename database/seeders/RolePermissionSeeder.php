@@ -52,10 +52,6 @@ class RolePermissionSeeder extends Seeder
         $roleAdmin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $roleAdmin->givePermissionTo(['view_landing_page', 'resolve_dispute']);
 
-        // Role: Manager Operasional
-        $roleManager = Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web']);
-        $roleManager->givePermissionTo(['view_landing_page', 'resolve_dispute']);
-
         // Role: Owner (Director/Stakeholder)
         $roleOwner = Role::firstOrCreate(['name' => 'owner', 'guard_name' => 'web']);
         $roleOwner->givePermissionTo(['view_landing_page', 'view_financial_reports']);

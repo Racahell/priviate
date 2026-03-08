@@ -65,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('webSetting', $setting);
             $view->with('webLogo', $setting?->logo_url);
             $view->with('webFooter', data_get($setting, 'extra.footer_content'));
+            $view->with('webFooterConfig', data_get($setting, 'extra.footer_config', []));
             $view->with('webName', $setting?->site_name ?: config('app.name', 'PrivTuition'));
         });
     }

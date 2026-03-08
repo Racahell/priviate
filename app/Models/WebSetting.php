@@ -13,7 +13,6 @@ class WebSetting extends Model
         'site_name',
         'logo_url',
         'address',
-        'manager_name',
         'contact_email',
         'contact_phone',
         'extra',

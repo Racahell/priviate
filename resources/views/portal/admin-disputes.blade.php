@@ -6,8 +6,8 @@
 <div class="card">
     <h3 class="card-title">Daftar Kritik</h3>
     <p class="card-meta">Update status dan selesaikan kritik operasional.</p>
-
-    <div class="table-wrap section">
+    @include('components.pagination-controls', ['paginator' => $disputes, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
+<div class="table-wrap section">
         <table>
             <thead>
                 <tr>
@@ -35,7 +35,6 @@
                                     <select name="status" class="form-control" required>
                                         <option value="IN_REVIEW_L1">IN_REVIEW_L1</option>
                                         <option value="IN_REVIEW_ADMIN">IN_REVIEW_ADMIN</option>
-                                        <option value="IN_REVIEW_SUPERADMIN">IN_REVIEW_SUPERADMIN</option>
                                         <option value="RESOLVED">RESOLVED</option>
                                     </select>
                                     <input type="text" name="notes" class="form-control" placeholder="Catatan">
@@ -55,6 +54,8 @@
             </tbody>
         </table>
     </div>
-    {{ $disputes->links() }}
 </div>
+
+    @include('components.pagination-controls', ['paginator' => $disputes, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
+

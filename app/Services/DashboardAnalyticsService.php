@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Invoice;
+use App\Models\OperationalCostEntry;
 use App\Models\Payment;
+use App\Models\TeacherPayout;
 use Carbon\Carbon;
 
 class DashboardAnalyticsService
@@ -68,6 +71,9 @@ class DashboardAnalyticsService
             'yesterday' => $this->sumAndCount($yesterdayStart, $yesterdayEnd),
             'this_month' => $this->sumAndCount($thisMonthStart, $thisMonthEnd),
             'last_month' => $this->sumAndCount($lastMonthStart, $lastMonthEnd),
+            'this_month_profit' => [
+                'amount' => $this->profitAmount($thisMonthStart, $thisMonthEnd),
+            ],
         ];
     }
 
@@ -212,5 +218,24 @@ class DashboardAnalyticsService
             'labels' => $rows->map(fn (Payment $row) => str($row->method)->replace('_', ' ')->title()->toString())->all(),
             'data' => $rows->map(fn (Payment $row) => (float) $row->total)->all(),
         ];
+    }
+
+    private function profitAmount(Carbon $start, Carbon $end): float
+    {
+        $income = (float) Invoice::query()
+            ->where('status', 'paid')
+            ->whereBetween('issue_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('total_amount');
+
+        $payout = (float) TeacherPayout::query()
+            ->where('status', 'PAID')
+            ->whereBetween('paid_at', [$start, $end])
+            ->sum('net_amount');
+
+        $operational = (float) OperationalCostEntry::query()
+            ->whereBetween('cost_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('amount');
+
+        return $income - $payout - $operational;
     }
 }

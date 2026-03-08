@@ -66,19 +66,17 @@
                     </div>
                 @endif
             </div>
-            <div>
-                <div class="form-group">
-                    <label>Password Baru (opsional)</label>
-                    <input type="password" name="password" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Konfirmasi Password Baru</label>
-                    <input type="password" name="password_confirmation" class="form-control">
-                </div>
-            </div>
         </div>
 
         <button type="submit" class="btn btn-primary">Simpan Profil</button>
     </form>
+</div>
+
+<div class="card profile-otp-card">
+    <h3 class="card-title">Reset Password via OTP</h3>
+    <p class="card-meta">Kirim kode OTP melalui WhatsApp atau Email untuk reset password secara aman.</p>
+    <div class="profile-otp-actions">
+        <a href="{{ route('password.forgot', ['email' => $user->email]) }}" class="btn btn-outline profile-otp-btn">Kirim OTP Reset Password</a>
+    </div>
 </div>
 @endsection

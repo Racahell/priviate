@@ -37,18 +37,45 @@ class SystemManagementController extends Controller
         $data = $request->validate([
             'site_name' => 'required|string|max:255',
             'address' => 'nullable|string',
-            'manager_name' => 'nullable|string|max:255',
             'contact_email' => 'nullable|email',
             'contact_phone' => 'nullable|string|max:32',
-            'footer_content' => 'nullable|string',
+            'footer_brand' => 'nullable|string|max:120',
+            'footer_copyright_text' => 'nullable|string|max:255',
+            'footer_version' => 'nullable|string|max:80',
+            'footer_navigation' => 'nullable|string',
+            'footer_legal' => 'nullable|string',
+            'footer_contact_email' => 'nullable|string|max:120',
+            'footer_contact_phone' => 'nullable|string|max:64',
+            'footer_contact_address' => 'nullable|string|max:200',
+            'footer_social' => 'nullable|string',
             'logo_file' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         $setting = WebSetting::firstOrCreate([]);
         $old = $setting->toArray();
         $extra = is_array($setting->extra) ? $setting->extra : [];
-        $extra['footer_content'] = $data['footer_content'] ?? ($extra['footer_content'] ?? null);
-        unset($data['footer_content']);
+        $extra['footer_config'] = [
+            'brand' => $data['footer_brand'] ?? 'Laravel',
+            'copyright_text' => $data['footer_copyright_text'] ?? '© 2026 Laravel. All rights reserved.',
+            'version' => $data['footer_version'] ?? 'Version 2.3.1',
+            'navigation' => $data['footer_navigation'] ?? "Tentang Kami\nKontak\nBlog\nFAQ\nHelp Center",
+            'legal' => $data['footer_legal'] ?? "Privacy Policy\nTerms of Service\nCookie Policy",
+            'contact_email' => $data['footer_contact_email'] ?? 'support@privtuition.app',
+            'contact_phone' => $data['footer_contact_phone'] ?? '+62 21 5550 2026',
+            'contact_address' => $data['footer_contact_address'] ?? 'Jakarta, Indonesia',
+            'social' => $data['footer_social'] ?? "Instagram\nFacebook\nLinkedIn\nTwitter/X",
+        ];
+        unset(
+            $data['footer_brand'],
+            $data['footer_copyright_text'],
+            $data['footer_version'],
+            $data['footer_navigation'],
+            $data['footer_legal'],
+            $data['footer_contact_email'],
+            $data['footer_contact_phone'],
+            $data['footer_contact_address'],
+            $data['footer_social']
+        );
 
         if ($request->hasFile('logo_file')) {
             $path = $request->file('logo_file')->store('branding', 'public');
@@ -68,7 +95,7 @@ class SystemManagementController extends Controller
     public function menuAccess()
     {
         $this->ensureDefaultMenus();
-        $roles = ['owner', 'admin', 'manager', 'tentor', 'siswa', 'orang_tua'];
+        $roles = ['owner', 'admin', 'tentor', 'siswa', 'orang_tua'];
         $menuCount = MenuItem::where('is_active', true)->count();
 
         return view('superadmin.menu-access.index', compact('roles', 'menuCount'));
@@ -76,22 +103,41 @@ class SystemManagementController extends Controller
 
     public function menuAccessRole(string $role)
     {
-        $roles = ['owner', 'admin', 'manager', 'tentor', 'siswa', 'orang_tua'];
+        $roles = ['owner', 'admin', 'tentor', 'siswa', 'orang_tua'];
         abort_unless(in_array($role, $roles, true), 404);
 
         $menuItems = MenuItem::where('is_active', true)->orderBy('sort_order')->get();
         $permissions = MenuPermission::where('role_name', $role)->get()->keyBy('menu_item_id');
+        $menuGroups = $menuItems
+            ->groupBy(fn ($menu) => mb_strtolower(trim((string) $menu->label)))
+            ->map(function ($group) use ($permissions) {
+                $ids = $group->pluck('id')->values()->all();
+                $perms = collect($ids)->map(fn ($id) => $permissions[$id] ?? null)->filter();
 
-        return view('superadmin.menu-access.role', compact('role', 'menuItems', 'permissions'));
+                return [
+                    'label' => (string) $group->first()->label,
+                    'route_names' => $group->pluck('route_name')->filter()->values()->all(),
+                    'menu_ids' => $ids,
+                    'can_view' => $perms->contains(fn ($p) => (bool) $p->can_view),
+                    'can_create' => $perms->contains(fn ($p) => (bool) $p->can_create),
+                    'can_update' => $perms->contains(fn ($p) => (bool) $p->can_update),
+                    'can_delete' => $perms->contains(fn ($p) => (bool) $p->can_delete),
+                ];
+            })
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return view('superadmin.menu-access.role', compact('role', 'menuGroups'));
     }
 
     public function updateMenuAccessRole(Request $request, string $role)
     {
-        $roles = ['owner', 'admin', 'manager', 'tentor', 'siswa', 'orang_tua'];
+        $roles = ['owner', 'admin', 'tentor', 'siswa', 'orang_tua'];
         abort_unless(in_array($role, $roles, true), 404);
 
         $data = $request->validate([
             'permissions' => 'array',
+            'permissions_group' => 'array',
         ]);
 
         DB::transaction(function () use ($data, $role) {
@@ -109,6 +155,24 @@ class SystemManagementController extends Controller
                     ]
                 );
             }
+
+            foreach ($data['permissions_group'] ?? [] as $groupPerm) {
+                $menuIds = collect($groupPerm['menu_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->all();
+                foreach ($menuIds as $menuId) {
+                    MenuPermission::updateOrCreate(
+                        [
+                            'menu_item_id' => $menuId,
+                            'role_name' => $role,
+                        ],
+                        [
+                            'can_view' => !empty($groupPerm['can_view']),
+                            'can_create' => !empty($groupPerm['can_create']),
+                            'can_update' => !empty($groupPerm['can_update']),
+                            'can_delete' => !empty($groupPerm['can_delete']),
+                        ]
+                    );
+                }
+            }
         });
 
         $this->auditService->log('RBAC_UPDATED', null, [], ['menu_permissions' => true, 'role' => $role]);
@@ -121,9 +185,10 @@ class SystemManagementController extends Controller
         return back()->with('success', 'Hak akses menu role berhasil diperbarui.');
     }
 
-    public function backupCenter()
+    public function backupCenter(Request $request)
     {
-        $backups = BackupJob::latest()->paginate(15);
+        $perPage = $this->resolvePerPage($request, 15);
+        $backups = BackupJob::latest()->paginate($perPage)->withQueryString();
         $routePrefix = request()->routeIs('admin.*') ? 'admin' : 'superadmin';
         return view('superadmin.backup.index', compact('backups', 'routePrefix'));
     }
@@ -202,9 +267,10 @@ class SystemManagementController extends Controller
         return back()->with('success', 'Disaster restore berhasil dijalankan.');
     }
 
-    public function importCenter()
+    public function importCenter(Request $request)
     {
-        $jobs = ImportJob::latest()->paginate(15);
+        $perPage = $this->resolvePerPage($request, 15);
+        $jobs = ImportJob::latest()->paginate($perPage)->withQueryString();
         $routePrefix = request()->routeIs('admin.*') ? 'admin' : 'superadmin';
         return view('superadmin.import.index', compact('jobs', 'routePrefix'));
     }
@@ -230,31 +296,35 @@ class SystemManagementController extends Controller
         $menus = [
             ['code' => 'dashboard', 'label' => 'Dashboard', 'route_name' => 'dashboard', 'sort_order' => 1],
             ['code' => 'profile', 'label' => 'Profil', 'route_name' => 'profile.edit', 'sort_order' => 2],
-            ['code' => 'owner_reports', 'label' => 'Laporan Owner', 'route_name' => 'owner.reports', 'sort_order' => 3],
-            ['code' => 'owner_financials', 'label' => 'Financial Owner', 'route_name' => 'owner.financials', 'sort_order' => 4],
-            ['code' => 'admin_import_center', 'label' => 'Import Admin', 'route_name' => 'admin.import.center', 'sort_order' => 5],
-            ['code' => 'admin_disputes', 'label' => 'Kritik', 'route_name' => 'admin.disputes', 'sort_order' => 6],
-            ['code' => 'admin_monitor', 'label' => 'Monitor Admin', 'route_name' => 'admin.monitor', 'sort_order' => 7],
-            ['code' => 'admin_sessions', 'label' => 'Sesi', 'route_name' => 'admin.sessions', 'sort_order' => 8],
-            ['code' => 'manager_disputes', 'label' => 'Kritik', 'route_name' => 'manager.disputes', 'sort_order' => 9],
-            ['code' => 'manager_monitor', 'label' => 'Monitor', 'route_name' => 'manager.monitor', 'sort_order' => 10],
-            ['code' => 'admin_packages', 'label' => 'Paket', 'route_name' => 'admin.modules.packages', 'sort_order' => 11],
-            ['code' => 'admin_subjects', 'label' => 'Mapel', 'route_name' => 'admin.modules.subjects', 'sort_order' => 12],
-            ['code' => 'admin_users', 'label' => 'User', 'route_name' => 'admin.modules.users', 'sort_order' => 13],
-            ['code' => 'student_booking', 'label' => 'Booking', 'route_name' => 'student.booking', 'sort_order' => 14],
-            ['code' => 'student_invoices', 'label' => 'Invoices', 'route_name' => 'student.invoices', 'sort_order' => 15],
-            ['code' => 'parent_dashboard', 'label' => 'Dashboard Orang Tua', 'route_name' => 'parent.dashboard', 'sort_order' => 16],
+            ['code' => 'owner_reports', 'label' => 'Laporan Keuangan', 'route_name' => 'owner.reports', 'sort_order' => 3],
+            ['code' => 'admin_reports', 'label' => 'Laporan Keuangan', 'route_name' => 'admin.reports', 'sort_order' => 4],
+            ['code' => 'admin_disputes', 'label' => 'Kritik', 'route_name' => 'admin.disputes', 'sort_order' => 5],
+            ['code' => 'admin_monitor', 'label' => 'Monitor Admin', 'route_name' => 'admin.monitor', 'sort_order' => 6],
+            ['code' => 'admin_sessions', 'label' => 'Sesi', 'route_name' => 'admin.sessions', 'sort_order' => 7],
+            ['code' => 'admin_module_sessions', 'label' => 'Sesi', 'route_name' => 'admin.modules.sessions', 'sort_order' => 8],
+            ['code' => 'admin_invoices', 'label' => 'Invoices', 'route_name' => 'admin.invoices', 'sort_order' => 9],
+            ['code' => 'admin_packages', 'label' => 'Paket', 'route_name' => 'admin.modules.packages', 'sort_order' => 10],
+            ['code' => 'admin_subjects', 'label' => 'Mapel', 'route_name' => 'admin.modules.subjects', 'sort_order' => 11],
+            ['code' => 'admin_users', 'label' => 'User', 'route_name' => 'admin.modules.users', 'sort_order' => 12],
+            ['code' => 'student_packages', 'label' => 'Paket', 'route_name' => 'student.packages', 'sort_order' => 13],
+            ['code' => 'student_invoices', 'label' => 'Invoices', 'route_name' => 'student.invoices', 'sort_order' => 14],
+            ['code' => 'student_booking', 'label' => 'Booking', 'route_name' => 'student.booking', 'sort_order' => 15],
+            ['code' => 'parent_dashboard', 'label' => 'Dashboard', 'route_name' => 'parent.dashboard', 'sort_order' => 16],
             ['code' => 'parent_children', 'label' => 'Hubungkan Anak', 'route_name' => 'parent.children', 'sort_order' => 17],
-            ['code' => 'tutor_schedule', 'label' => 'Jadwal Mengajar', 'route_name' => 'tutor.schedule', 'sort_order' => 18],
-            ['code' => 'tutor_wallet', 'label' => 'Dompet & Honor', 'route_name' => 'tutor.wallet', 'sort_order' => 19],
-            ['code' => 'superadmin_packages', 'label' => 'Paket', 'route_name' => 'superadmin.modules.packages', 'sort_order' => 20],
-            ['code' => 'superadmin_subjects', 'label' => 'Mapel', 'route_name' => 'superadmin.modules.subjects', 'sort_order' => 21],
-            ['code' => 'superadmin_sessions', 'label' => 'Sesi', 'route_name' => 'superadmin.modules.sessions', 'sort_order' => 22],
-            ['code' => 'superadmin_users', 'label' => 'User', 'route_name' => 'superadmin.modules.users', 'sort_order' => 23],
-            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 24],
-            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 25],
-            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 26],
-            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 27],
+            ['code' => 'parent_reschedule', 'label' => 'Reschedule', 'route_name' => 'parent.reschedule', 'sort_order' => 18],
+            ['code' => 'parent_disputes', 'label' => 'Kritik', 'route_name' => 'parent.disputes', 'sort_order' => 19],
+            ['code' => 'tutor_schedule', 'label' => 'Jadwal Mengajar', 'route_name' => 'tutor.schedule', 'sort_order' => 20],
+            ['code' => 'tutor_wallet', 'label' => 'Dompet & Honor', 'route_name' => 'tutor.wallet', 'sort_order' => 21],
+            ['code' => 'superadmin_packages', 'label' => 'Paket', 'route_name' => 'superadmin.modules.packages', 'sort_order' => 22],
+            ['code' => 'superadmin_subjects', 'label' => 'Mapel', 'route_name' => 'superadmin.modules.subjects', 'sort_order' => 23],
+            ['code' => 'superadmin_sessions', 'label' => 'Sesi', 'route_name' => 'superadmin.modules.sessions', 'sort_order' => 24],
+            ['code' => 'superadmin_users', 'label' => 'User', 'route_name' => 'superadmin.modules.users', 'sort_order' => 25],
+            ['code' => 'admin_settings', 'label' => 'Setting Web', 'route_name' => 'admin.settings', 'sort_order' => 26],
+            ['code' => 'admin_activity_logs', 'label' => 'Activity Log', 'route_name' => 'admin.activity.logs', 'sort_order' => 27],
+            ['code' => 'settings', 'label' => 'Setting Web', 'route_name' => 'superadmin.settings', 'sort_order' => 28],
+            ['code' => 'menu_access', 'label' => 'Hak Akses Menu', 'route_name' => 'superadmin.menu.access', 'sort_order' => 29],
+            ['code' => 'backup_center', 'label' => 'Backup Restore', 'route_name' => 'superadmin.backup.center', 'sort_order' => 30],
+            ['code' => 'import_center', 'label' => 'Import Data', 'route_name' => 'superadmin.import.center', 'sort_order' => 31],
         ];
 
         $activeCodes = collect($menus)->pluck('code')->all();
@@ -268,7 +338,7 @@ class SystemManagementController extends Controller
 
     private function syncDefaultPermission(int $menuId, string $routeName): void
     {
-        $roles = ['superadmin', 'owner', 'admin', 'manager', 'tentor', 'siswa', 'orang_tua'];
+        $roles = ['superadmin', 'owner', 'admin', 'tentor', 'siswa', 'orang_tua'];
         foreach ($roles as $role) {
             $canView = $this->canViewRoute($role, $routeName);
             MenuPermission::updateOrCreate(
@@ -278,7 +348,7 @@ class SystemManagementController extends Controller
                 ],
                 [
                     'can_view' => $canView,
-                    'can_create' => $canView && in_array($role, ['superadmin', 'admin', 'manager'], true),
+                    'can_create' => $canView && in_array($role, ['superadmin', 'admin'], true),
                     'can_update' => $canView && in_array($role, ['superadmin', 'admin'], true),
                     'can_delete' => $role === 'superadmin',
                 ]
@@ -290,23 +360,33 @@ class SystemManagementController extends Controller
     {
         return match ($role) {
             'superadmin' => true,
-            'owner' => in_array($routeName, ['dashboard', 'profile.edit', 'owner.reports', 'owner.financials'], true),
+            'owner' => in_array($routeName, ['dashboard', 'profile.edit', 'owner.reports'], true),
             'admin' => in_array($routeName, [
                 'dashboard',
                 'profile.edit',
-                'admin.import.center',
                 'admin.disputes',
                 'admin.monitor',
+                'admin.reports',
                 'admin.sessions',
+                'admin.modules.sessions',
+                'admin.invoices',
+                'admin.settings',
+                'admin.activity.logs',
                 'admin.modules.packages',
                 'admin.modules.subjects',
                 'admin.modules.users',
             ], true),
-            'manager' => in_array($routeName, ['dashboard', 'profile.edit', 'manager.disputes', 'manager.monitor'], true),
             'tentor' => in_array($routeName, ['dashboard', 'profile.edit', 'tutor.schedule', 'tutor.wallet'], true),
-            'siswa' => in_array($routeName, ['dashboard', 'profile.edit', 'student.booking', 'student.invoices'], true),
-            'orang_tua' => in_array($routeName, ['profile.edit', 'parent.dashboard', 'parent.children'], true),
+            'siswa' => in_array($routeName, ['dashboard', 'profile.edit', 'student.packages', 'student.invoices', 'student.booking'], true),
+            'orang_tua' => in_array($routeName, ['profile.edit', 'parent.dashboard', 'parent.children', 'parent.reschedule', 'parent.disputes'], true),
             default => false,
         };
+    }
+
+    private function resolvePerPage(Request $request, int $default = 15): int
+    {
+        $allowed = [10, 25, 50, 100];
+        $requested = (int) $request->query('per_page', $default);
+        return in_array($requested, $allowed, true) ? $requested : $default;
     }
 }

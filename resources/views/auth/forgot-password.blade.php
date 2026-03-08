@@ -14,7 +14,7 @@
                 @csrf
                 <div class="form-group @error('email') has-error @enderror">
                     <label>Email akun</label>
-                    <input type="email" name="email" class="form-control" required value="{{ old('email') }}">
+                    <input type="email" name="email" class="form-control" required value="{{ old('email', $prefillEmail ?? '') }}">
                     @error('email') <span class="help-block">{{ $message }}</span> @enderror
                 </div>
                 <div class="form-group @error('channel') has-error @enderror">
@@ -28,7 +28,11 @@
                 <button class="btn btn-primary btn-block" type="submit">Kirim OTP</button>
             </form>
             <div class="auth-links text-center">
-                <p><a href="{{ route('login') }}">Kembali ke Login</a></p>
+                @auth
+                    <p><a href="{{ route('profile.edit') }}">Kembali ke Profil</a></p>
+                @else
+                    <p><a href="{{ route('login') }}">Kembali ke Login</a></p>
+                @endauth
             </div>
         </div>
     </div>

@@ -30,7 +30,8 @@
 <div class="card section">
     <h3 class="card-title">Aksi Cepat</h3>
     <div class="grid grid-3">
-        <a href="{{ route('student.booking') }}" class="btn btn-outline">Pilih Paket Belajar</a>
+        <a href="{{ route('student.packages') }}" class="btn btn-outline">Pilih Paket Belajar</a>
+        <a href="{{ route('student.booking') }}" class="btn btn-outline">Booking Sesi</a>
         <a href="{{ route('student.invoices') }}" class="btn btn-outline">Lihat Invoice</a>
         <a href="{{ route('profile.edit') }}" class="btn btn-outline">Update Profil</a>
     </div>

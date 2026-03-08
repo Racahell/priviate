@@ -29,13 +29,13 @@ Route::middleware('guest')->group(function () {
     Route::get('/two-factor', [AuthController::class, 'showTwoFactorForm'])->name('twofactor.form');
     Route::post('/two-factor', [AuthController::class, 'verifyTwoFactor'])->name('twofactor.verify');
 
-    Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.forgot');
-    Route::post('/forgot-password', [AuthController::class, 'sendForgotPasswordOtp'])->name('password.forgot.send');
-    Route::get('/forgot-password/{requestId}', [AuthController::class, 'showForgotPasswordVerifyForm'])->name('password.forgot.verify');
-    Route::post('/forgot-password/{requestId}', [AuthController::class, 'resetForgotPassword'])->name('password.forgot.reset');
 });
 
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.forgot');
+Route::post('/forgot-password', [AuthController::class, 'sendForgotPasswordOtp'])->name('password.forgot.send');
+Route::get('/forgot-password/{requestId}', [AuthController::class, 'showForgotPasswordVerifyForm'])->name('password.forgot.verify');
+Route::post('/forgot-password/{requestId}', [AuthController::class, 'resetForgotPassword'])->name('password.forgot.reset');
 
 Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -53,6 +53,7 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
     Route::post('/ops/session/{sessionId}/attendance', [OperationsController::class, 'markAttendance'])->name('ops.attendance.mark');
     Route::post('/ops/session/{sessionId}/material', [OperationsController::class, 'submitMaterial'])->name('ops.material.submit');
     Route::post('/ops/slot/book', [OperationsController::class, 'bookSlot'])->name('ops.slot.book');
+    Route::get('/ops/slot/availability', [OperationsController::class, 'slotAvailability'])->name('ops.slot.availability');
     Route::post('/ops/dispute', [OperationsController::class, 'createDispute'])->name('ops.dispute.create');
     Route::put('/ops/dispute/{id}', [OperationsController::class, 'updateDispute'])->name('ops.dispute.update');
     Route::post('/ops/dispute/{id}/resolve', [OperationsController::class, 'resolveDispute'])->name('ops.dispute.resolve');
@@ -62,27 +63,43 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
     Route::post('/ops/reschedule/{id}/approve', [OperationsController::class, 'approveReschedule'])->name('ops.reschedule.approve');
     Route::post('/ops/reschedule/{id}/deny', [OperationsController::class, 'denyReschedule'])->name('ops.reschedule.deny');
 
-    Route::group(['prefix' => 'student', 'as' => 'student.', 'middleware' => ['role:siswa']], function () {
+    Route::group(['prefix' => 'student', 'as' => 'student.', 'middleware' => ['role:siswa|superadmin']], function () {
         Route::get('/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard');
+        Route::get('/packages', [PortalController::class, 'studentPackages'])->name('packages');
         Route::get('/booking', [PortalController::class, 'studentBooking'])->name('booking');
         Route::get('/invoices', [PortalController::class, 'studentInvoices'])->name('invoices');
     });
 
-    Route::group(['prefix' => 'tutor', 'as' => 'tutor.', 'middleware' => ['role:tentor']], function () {
+    Route::group(['prefix' => 'tutor', 'as' => 'tutor.', 'middleware' => ['role:tentor|admin|superadmin']], function () {
         Route::get('/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard');
         Route::get('/schedule', [PortalController::class, 'tutorSchedule'])->name('schedule');
         Route::get('/wallet', [PortalController::class, 'tutorWallet'])->name('wallet');
+        Route::post('/wallet/withdraw', [PortalController::class, 'tutorRequestWithdrawal'])->name('wallet.withdraw');
         Route::post('/session/start', fn () => response()->json(['allowed' => true]))->name('session.start');
     });
 
-    Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['role:admin']], function () {
+    Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['role:admin|superadmin']], function () {
         Route::get('/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard');
         Route::get('/kyc', [PortalController::class, 'adminKyc'])->name('kyc');
-        Route::get('/disputes', [PortalController::class, 'adminDisputes'])->name('disputes');
+        Route::get('/disputes', [ModuleDataController::class, 'index'])->defaults('module', 'disputes')->name('disputes');
         Route::get('/monitor', [PortalController::class, 'adminMonitor'])->name('monitor');
+        Route::get('/activity-logs', [PortalController::class, 'activityLogs'])->name('activity.logs');
+        Route::get('/reports', [OwnerReportController::class, 'index'])->name('reports');
+        Route::get('/reports/data', [OwnerReportController::class, 'data'])->name('reports.data');
+        Route::post('/reports/operational-cost', [OwnerReportController::class, 'storeOperationalCost'])->name('reports.cost.store');
+        Route::get('/reports/export', [OwnerReportController::class, 'export'])->name('reports.export');
         Route::get('/sessions', [PortalController::class, 'adminSessions'])->name('sessions');
+        Route::get('/invoices', [PortalController::class, 'adminInvoices'])->name('invoices');
+        Route::delete('/invoices/{id}', [PortalController::class, 'adminInvoicesSoftDelete'])->name('invoices.delete');
+        Route::post('/invoices/bulk-delete', [PortalController::class, 'adminInvoicesBulkDelete'])->name('invoices.bulkDelete');
         Route::post('/sessions', [PortalController::class, 'adminSessionsStore'])->name('sessions.store');
+        Route::put('/sessions/{id}', [PortalController::class, 'adminSessionsUpdate'])->name('sessions.update');
+        Route::delete('/sessions/{id}', [PortalController::class, 'adminSessionsDelete'])->name('sessions.delete');
+        Route::post('/sessions/bulk-delete', [PortalController::class, 'adminSessionsBulkDelete'])->name('sessions.bulkDelete');
+        Route::post('/sessions/{id}/restore', [PortalController::class, 'adminSessionsRestore'])->name('sessions.restore');
+        Route::delete('/sessions/{id}/force', [PortalController::class, 'adminSessionsForceDelete'])->name('sessions.forceDelete');
         Route::get('/modules/packages', [ModuleDataController::class, 'index'])->defaults('module', 'packages')->name('modules.packages');
+        Route::get('/modules/disputes', [ModuleDataController::class, 'index'])->defaults('module', 'disputes')->name('modules.disputes');
         Route::get('/modules/subjects', [ModuleDataController::class, 'index'])->defaults('module', 'subjects')->name('modules.subjects');
         Route::get('/modules/sessions', [ModuleDataController::class, 'index'])->defaults('module', 'sessions')->name('modules.sessions');
         Route::get('/modules/items', [ModuleDataController::class, 'index'])->defaults('module', 'items')->name('modules.items');
@@ -91,29 +108,23 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
         Route::put('/modules/{module}/{id}', [ModuleDataController::class, 'update'])->name('modules.update');
         Route::post('/modules/{module}/bulk', [ModuleDataController::class, 'bulk'])->name('modules.bulk');
         Route::delete('/modules/{module}/{id}', [ModuleDataController::class, 'softDelete'])->name('modules.softdelete');
-        Route::get('/import', [SystemManagementController::class, 'importCenter'])->name('import.center');
-        Route::post('/import/users', [SystemManagementController::class, 'importUsers'])->name('import.users');
-        Route::post('/import/items', [SystemManagementController::class, 'importItems'])->name('import.items');
+        Route::get('/settings', [SystemManagementController::class, 'settings'])->name('settings');
+        Route::post('/settings', [SystemManagementController::class, 'updateSettings'])->name('settings.update');
     });
 
-    Route::group(['prefix' => 'manager', 'as' => 'manager.', 'middleware' => ['role:manager']], function () {
-        Route::get('/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard');
-        Route::get('/kritik', [PortalController::class, 'adminDisputes'])->name('disputes');
-        Route::get('/monitor', [PortalController::class, 'adminMonitor'])->name('monitor');
-    });
-
-    Route::group(['prefix' => 'orang-tua', 'as' => 'parent.', 'middleware' => ['role:orang_tua']], function () {
+    Route::group(['prefix' => 'orang-tua', 'as' => 'parent.', 'middleware' => ['role:orang_tua|superadmin']], function () {
         Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/anak', [ParentDashboardController::class, 'children'])->name('children');
         Route::post('/anak', [ParentDashboardController::class, 'linkChild'])->name('children.link');
+        Route::get('/jadwal', [ParentDashboardController::class, 'schedule'])->name('schedule');
+        Route::get('/reschedule', [ParentDashboardController::class, 'reschedule'])->name('reschedule');
+        Route::get('/kritik', [ParentDashboardController::class, 'disputes'])->name('disputes');
     });
 
-    Route::group(['prefix' => 'owner', 'as' => 'owner.', 'middleware' => ['role:owner']], function () {
+    Route::group(['prefix' => 'owner', 'as' => 'owner.', 'middleware' => ['role:owner|superadmin']], function () {
         Route::get('/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard');
-        Route::get('/financials', [OwnerController::class, 'financials'])->name('financials');
         Route::get('/reports', [OwnerReportController::class, 'index'])->name('reports');
         Route::get('/reports/data', [OwnerReportController::class, 'data'])->name('reports.data');
-        Route::post('/reports/operational-cost', [OwnerReportController::class, 'storeOperationalCost'])->name('reports.cost.store');
         Route::get('/reports/export', [OwnerReportController::class, 'export'])->name('reports.export');
     });
 
@@ -122,6 +133,9 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
 
         Route::get('/whitelabel', [WhitelabelController::class, 'index'])->name('whitelabel');
         Route::put('/whitelabel/{id}', [WhitelabelController::class, 'update'])->name('whitelabel.update');
+        Route::get('/invoices', [PortalController::class, 'adminInvoices'])->name('invoices');
+        Route::post('/invoices/{id}/restore', [PortalController::class, 'superadminInvoiceRestore'])->name('invoices.restore');
+        Route::delete('/invoices/{id}/force', [PortalController::class, 'superadminInvoiceForceDelete'])->name('invoices.forceDelete');
 
         Route::get('/settings', [SystemManagementController::class, 'settings'])->name('settings');
         Route::post('/settings', [SystemManagementController::class, 'updateSettings'])->name('settings.update');
@@ -131,7 +145,9 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
         Route::post('/menu-access/{role}', [SystemManagementController::class, 'updateMenuAccessRole'])->name('menu.access.role.update');
 
         Route::get('/modules/packages', [ModuleDataController::class, 'index'])->defaults('module', 'packages')->name('modules.packages');
+        Route::get('/modules/disputes', [ModuleDataController::class, 'index'])->defaults('module', 'disputes')->name('modules.disputes');
         Route::get('/modules/subjects', [ModuleDataController::class, 'index'])->defaults('module', 'subjects')->name('modules.subjects');
+        Route::get('/modules/sessions', [ModuleDataController::class, 'index'])->defaults('module', 'sessions')->name('modules.sessions');
         Route::get('/modules/items', [ModuleDataController::class, 'index'])->defaults('module', 'items')->name('modules.items');
         Route::get('/modules/users', [ModuleDataController::class, 'index'])->defaults('module', 'users')->name('modules.users');
         Route::post('/modules/{module}', [ModuleDataController::class, 'store'])->name('modules.store');

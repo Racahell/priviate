@@ -35,6 +35,10 @@ body {
   min-height: 100%;
 }
 
+#container {
+  min-height: 100vh;
+}
+
 body {
   font-family: "Poppins", "Inter", "Segoe UI", sans-serif;
   color: var(--text);
@@ -192,15 +196,36 @@ body {
   color: #fff;
 }
 
+.sidebar-menu .sidebar-category {
+  list-style: none;
+  margin: 10px 8px 4px;
+  padding-top: 8px;
+  border-top: 1px solid #e3ebfb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a8dad;
+}
+
+.sidebar-menu .sidebar-category:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .auth-layout #main-content {
   margin-left: 250px;
   padding-top: 94px;
+  min-height: calc(100vh - 94px);
+  display: flex;
+  flex-direction: column;
 }
 
 .auth-layout .wrapper {
-  width: min(1560px, 99%);
+  width: min(1560px, calc(100% - 28px));
   margin: 0 auto;
-  padding-bottom: 28px;
+  padding: 0 12px 28px;
 }
 
 .content-heading .page-header {
@@ -335,6 +360,10 @@ body {
 
 .analytics-chart-card {
   min-height: 390px;
+}
+
+.analytics-chart-card-wide {
+  grid-column: 1 / span 2;
 }
 
 .analytics-side-card {
@@ -509,11 +538,15 @@ body {
 
 #main-content {
   padding-top: 90px;
+  min-height: calc(100vh - 90px);
+  display: flex;
+  flex-direction: column;
 }
 
 .wrapper {
   width: min(1120px, 94%);
   margin: 0 auto;
+  flex: 1 1 auto;
 }
 
 .pull-right {
@@ -669,6 +702,11 @@ a:hover {
   background: #fff2da;
 }
 
+.badge-info {
+  color: #21529d;
+  background: #e4efff;
+}
+
 .btn {
   appearance: none;
   border: 0;
@@ -781,6 +819,15 @@ textarea:focus {
 
 .card + .card {
   margin-top: 12px;
+}
+
+/* Keep content inside cards from sticking to borders when .section is used on card */
+.card.section {
+  padding: 20px;
+}
+
+.card.section > .section {
+  padding: 14px 0 0;
 }
 
 table {
@@ -981,13 +1028,52 @@ tbody tr:hover td {
 .guest-layout #main-content {
   margin-left: 0;
   padding-top: 84px;
+  min-height: calc(100vh - 84px);
+  display: flex;
+  flex-direction: column;
 }
 
 .guest-layout .wrapper {
   margin: 0;
   width: 100%;
   max-width: none;
-  padding: 14px 16px 18px;
+  padding: 14px 16px 24px;
+}
+
+.header-logout {
+  white-space: nowrap;
+}
+
+.booking-page {
+  display: grid;
+  gap: 22px;
+}
+
+.booking-page .card {
+  margin: 0;
+  padding: 22px;
+}
+
+.booking-page .card.section {
+  padding: 22px;
+}
+
+.booking-page .card-meta {
+  margin-bottom: 14px;
+  max-width: 68ch;
+}
+
+.booking-page .form-group {
+  margin-bottom: 12px;
+}
+
+.booking-page form.section {
+  padding: 12px 0 0;
+}
+
+.booking-page .table-wrap.section {
+  padding: 0;
+  margin-top: 12px;
 }
 
 .guest-layout .top-menu .btn.auth-btn {
@@ -996,9 +1082,75 @@ tbody tr:hover td {
 }
 
 .app-footer {
-  margin-top: 36px;
-  padding-bottom: 12px;
+  margin-top: auto;
+  padding: 18px 14px 14px;
   color: var(--muted);
+  border-top: 1px solid #dbe4f7;
+  background: linear-gradient(180deg, #f9fbff 0%, #f2f6ff 100%);
+  border-radius: 16px;
+}
+
+.app-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.app-footer-title {
+  margin: 0 0 6px;
+  color: #243f73;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.app-footer-text {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  color: #64789d;
+}
+
+.app-footer-links {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.app-footer-links a {
+  font-size: 0.78rem;
+  color: #2f5fb8;
+  text-decoration: none;
+}
+
+.app-footer-links a:hover {
+  color: #244d9b;
+  text-decoration: underline;
+}
+
+.app-footer-links span {
+  font-size: 0.78rem;
+  color: #2f5fb8;
+}
+
+.app-footer-note {
+  margin: 8px 0 0;
+  color: #8091b0;
+  font-size: 0.74rem;
+}
+
+.app-footer-custom {
+  font-size: 0.82rem;
+  color: #5d7095;
+  line-height: 1.7;
+}
+
+.app-footer-custom a {
+  color: #2f5fb8;
+  text-decoration: none;
+}
+
+.app-footer-custom a:hover {
+  color: #244d9b;
+  text-decoration: underline;
 }
 
 .split-header {
@@ -1032,6 +1184,63 @@ tbody tr:hover td {
   object-fit: cover;
   border-radius: 14px;
   border: 1px solid var(--border);
+}
+
+.profile-otp-card {
+  padding: 22px;
+}
+
+.profile-otp-card .card-meta {
+  margin: 8px 0 0;
+  max-width: 72ch;
+  line-height: 1.6;
+}
+
+.profile-otp-btn {
+  display: inline-flex;
+}
+
+.profile-otp-actions {
+  margin-top: 14px;
+}
+
+.user-form-grid {
+  gap: 14px;
+}
+
+.user-active-toggle {
+  margin-top: 2px;
+  margin-bottom: 14px;
+}
+
+.modal-form .split-actions {
+  margin-top: 8px;
+}
+
+.parent-kpi-grid .parent-kpi-card {
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.parent-menu-grid .card {
+  min-height: 152px;
+  padding-bottom: 18px;
+}
+
+.parent-menu-grid {
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.parent-menu-grid .card .card-meta {
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.parent-menu-grid .card .btn {
+  margin-top: 12px;
 }
 
 .pagination {
@@ -1180,6 +1389,20 @@ tbody tr:hover td {
   flex: 0 0 auto;
 }
 
+.report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.report-filter-grid .form-group {
+  margin-bottom: 0;
+}
+
+.report-filter-actions {
+  margin-top: 12px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1208,6 +1431,10 @@ tbody tr:hover td {
 
 .modal-form {
   padding-top: 12px;
+}
+
+.payment-modal-card {
+  width: min(620px, 96vw);
 }
 
 .action-stack {
@@ -1390,6 +1617,10 @@ tbody tr:hover td {
   .hero-grid {
     grid-template-columns: 1fr;
   }
+
+  .report-filter-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -1443,6 +1674,10 @@ tbody tr:hover td {
   .col-md-2,
   .col-sm-6 {
     width: 100%;
+  }
+
+  .report-filter-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1746,22 +1981,23 @@ tbody tr:hover td {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 20px;
-  background: #f5f5f8;
+  background: #f3f7ff;
   border-radius: 20px;
   padding: 18px;
+  border: 1px solid #e1e9fb;
 }
 
 .booking-intro {
   border-radius: 18px;
   padding: 28px 18px;
   background:
-    radial-gradient(circle at -20% 80%, #e8ebf3 0, #e8ebf3 38%, transparent 39%),
-    #f7f7fa;
+    radial-gradient(circle at -20% 80%, #deebff 0, #deebff 38%, transparent 39%),
+    #f8fbff;
 }
 
 .booking-tag {
   margin: 0;
-  color: #ff1c3d;
+  color: #2f5fb8;
   font-weight: 700;
 }
 
@@ -1779,8 +2015,8 @@ tbody tr:hover td {
 .booking-cta {
   margin-top: 10px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff2a4c, #e80031);
-  box-shadow: 0 10px 20px rgba(232, 0, 49, 0.26);
+  background: linear-gradient(135deg, #3e72c7, #2f5fb8);
+  box-shadow: 0 10px 20px rgba(47, 95, 184, 0.25);
 }
 
 .booking-content {
@@ -1825,7 +2061,7 @@ tbody tr:hover td {
 }
 
 .booking-card-head {
-  background: linear-gradient(135deg, #ff0037, #ff2a74);
+  background: linear-gradient(135deg, #2f5fb8, #4f7fd1);
   color: #fff;
   padding: 14px 12px;
 }
@@ -1871,11 +2107,15 @@ tbody tr:hover td {
 .booking-card-foot p {
   margin: 0;
   font-size: 1.6rem;
-  color: #ff0f3f;
+  color: #2f5fb8;
   font-weight: 700;
 }
 
 @media (max-width: 980px) {
+  .app-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .booking-shell {
     grid-template-columns: 1fr;
   }
@@ -1902,6 +2142,10 @@ tbody tr:hover td {
 }
 
 @media (max-width: 640px) {
+  .app-footer-grid {
+    grid-template-columns: 1fr;
+  }
+
   .booking-grid {
     grid-template-columns: 1fr;
   }

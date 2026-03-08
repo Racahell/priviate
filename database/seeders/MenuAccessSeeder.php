@@ -19,13 +19,13 @@ class MenuAccessSeeder extends Seeder
             ['code' => 'parent_children', 'label' => 'Hubungkan Anak', 'route_name' => 'parent.children', 'sort_order' => 6],
             ['code' => 'tutor_schedule', 'label' => 'Jadwal Mengajar', 'route_name' => 'tutor.schedule', 'sort_order' => 7],
             ['code' => 'tutor_wallet', 'label' => 'Dompet & Honor', 'route_name' => 'tutor.wallet', 'sort_order' => 8],
-            ['code' => 'admin_import_center', 'label' => 'Import Admin', 'route_name' => 'admin.import.center', 'sort_order' => 9],
-            ['code' => 'admin_disputes', 'label' => 'Disputes Admin', 'route_name' => 'admin.disputes', 'sort_order' => 10],
-            ['code' => 'admin_monitor', 'label' => 'Monitor Admin', 'route_name' => 'admin.monitor', 'sort_order' => 11],
-            ['code' => 'admin_packages', 'label' => 'Paket', 'route_name' => 'admin.modules.packages', 'sort_order' => 12],
-            ['code' => 'admin_subjects', 'label' => 'Mapel', 'route_name' => 'admin.modules.subjects', 'sort_order' => 13],
-            ['code' => 'admin_items', 'label' => 'Item', 'route_name' => 'admin.modules.items', 'sort_order' => 14],
-            ['code' => 'admin_users', 'label' => 'User', 'route_name' => 'admin.modules.users', 'sort_order' => 15],
+            ['code' => 'admin_disputes', 'label' => 'Disputes Admin', 'route_name' => 'admin.disputes', 'sort_order' => 9],
+            ['code' => 'admin_monitor', 'label' => 'Monitor Admin', 'route_name' => 'admin.monitor', 'sort_order' => 10],
+            ['code' => 'admin_packages', 'label' => 'Paket', 'route_name' => 'admin.modules.packages', 'sort_order' => 11],
+            ['code' => 'admin_subjects', 'label' => 'Mapel', 'route_name' => 'admin.modules.subjects', 'sort_order' => 12],
+            ['code' => 'admin_items', 'label' => 'Item', 'route_name' => 'admin.modules.items', 'sort_order' => 13],
+            ['code' => 'admin_users', 'label' => 'User', 'route_name' => 'admin.modules.users', 'sort_order' => 14],
+            ['code' => 'admin_activity_logs', 'label' => 'Activity Log', 'route_name' => 'admin.activity.logs', 'sort_order' => 15],
             ['code' => 'owner_reports', 'label' => 'Laporan Owner', 'route_name' => 'owner.reports', 'sort_order' => 16],
             ['code' => 'owner_financials', 'label' => 'Financial Owner', 'route_name' => 'owner.financials', 'sort_order' => 17],
             ['code' => 'superadmin_packages', 'label' => 'Paket', 'route_name' => 'superadmin.modules.packages', 'sort_order' => 18],
@@ -50,7 +50,7 @@ class MenuAccessSeeder extends Seeder
 
     private function seedPermissionsForMenu(int $menuId, string $routeName): void
     {
-        $roles = ['superadmin', 'owner', 'admin', 'manager', 'tentor', 'siswa', 'orang_tua'];
+        $roles = ['superadmin', 'owner', 'admin', 'tentor', 'siswa', 'orang_tua'];
 
         foreach ($roles as $role) {
             $allow = $this->canViewRoute($role, $routeName);
@@ -58,7 +58,7 @@ class MenuAccessSeeder extends Seeder
                 ['menu_item_id' => $menuId, 'role_name' => $role],
                 [
                     'can_view' => $allow,
-                    'can_create' => $allow && in_array($role, ['superadmin', 'admin', 'manager'], true),
+                    'can_create' => $allow && in_array($role, ['superadmin', 'admin'], true),
                     'can_update' => $allow && in_array($role, ['superadmin', 'admin'], true),
                     'can_delete' => $allow && $role === 'superadmin',
                 ]
@@ -74,15 +74,14 @@ class MenuAccessSeeder extends Seeder
             'admin' => in_array($routeName, [
                 'dashboard',
                 'profile.edit',
-                'admin.import.center',
                 'admin.disputes',
                 'admin.monitor',
                 'admin.modules.packages',
                 'admin.modules.subjects',
                 'admin.modules.items',
                 'admin.modules.users',
+                'admin.activity.logs',
             ], true),
-            'manager' => in_array($routeName, ['dashboard', 'profile.edit'], true),
             'tentor' => in_array($routeName, ['dashboard', 'profile.edit', 'tutor.schedule', 'tutor.wallet'], true),
             'siswa' => in_array($routeName, ['dashboard', 'profile.edit', 'student.booking', 'student.invoices'], true),
             'orang_tua' => in_array($routeName, ['profile.edit', 'parent.dashboard', 'parent.children'], true),

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\ParentUser;
 
 use App\Http\Controllers\Controller;
+use App\Models\Dispute;
 use App\Models\Invoice;
 use App\Models\RescheduleRequest;
+use App\Models\ScheduleSlot;
 use App\Models\TutoringSession;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -44,7 +46,100 @@ class DashboardController extends Controller
             ];
         });
 
-        return view('parent.dashboard', compact('completedSessions', 'unpaidInvoices', 'pendingReschedule', 'children', 'childStatus'));
+        $scheduleRows = collect();
+        $childAnalytics = collect();
+
+        if (!empty($childIds)) {
+            $scheduleRows = TutoringSession::query()
+                ->with(['student:id,name', 'subject:id,name,level', 'tentor:id,name'])
+                ->whereIn('student_id', $childIds)
+                ->whereIn('status', ['booked', 'confirmed', 'ongoing'])
+                ->where('scheduled_at', '>=', now()->subHours(3))
+                ->orderBy('scheduled_at')
+                ->take(30)
+                ->get();
+
+            $childAnalytics = $children->map(function (User $child) {
+                $total = TutoringSession::where('student_id', $child->id)->count();
+                $completed = TutoringSession::where('student_id', $child->id)->where('status', 'completed')->count();
+                $upcoming = TutoringSession::where('student_id', $child->id)
+                    ->whereIn('status', ['booked', 'confirmed', 'ongoing'])
+                    ->where('scheduled_at', '>=', now())
+                    ->count();
+                $avgRating = (float) (TutoringSession::where('student_id', $child->id)->whereNotNull('rating')->avg('rating') ?? 0);
+
+                return [
+                    'child' => $child,
+                    'total_sessions' => $total,
+                    'completed_sessions' => $completed,
+                    'upcoming_sessions' => $upcoming,
+                    'completion_rate' => $total > 0 ? (int) round(($completed / $total) * 100) : 0,
+                    'avg_rating' => $avgRating,
+                ];
+            });
+        }
+
+        return view('parent.dashboard', compact(
+            'completedSessions',
+            'unpaidInvoices',
+            'pendingReschedule',
+            'children',
+            'childStatus',
+            'scheduleRows',
+            'childAnalytics'
+        ));
+    }
+
+    public function reschedule(Request $request)
+    {
+        $parentId = (int) $request->user()->id;
+        $children = $this->childrenForParent($parentId);
+        $childIds = $children->pluck('id')->all();
+
+        $sessionOptions = $this->sessionOptionsForParent($childIds);
+        $openSlots = ScheduleSlot::query()
+            ->where('status', 'OPEN')
+            ->orderBy('start_at')
+            ->get(['id', 'start_at', 'end_at']);
+        $rescheduleHistory = $this->rescheduleHistoryForParent($childIds);
+
+        return view('parent.reschedule', compact('children', 'sessionOptions', 'openSlots', 'rescheduleHistory'));
+    }
+
+    public function schedule(Request $request)
+    {
+        $parentId = (int) $request->user()->id;
+        $children = $this->childrenForParent($parentId);
+        $selectedChildId = (int) $request->query('child_id', 0);
+
+        $selectedChild = $children->firstWhere('id', $selectedChildId);
+        $scheduleRows = collect();
+
+        if ($selectedChild) {
+            $perPage = $this->resolvePerPage($request, 20);
+            $scheduleRows = TutoringSession::query()
+                ->with(['student:id,name', 'subject:id,name,level', 'tentor:id,name'])
+                ->where('student_id', $selectedChild->id)
+                ->whereIn('status', ['booked', 'confirmed', 'ongoing'])
+                ->where('scheduled_at', '>=', now()->subHours(3))
+                ->orderBy('scheduled_at')
+                ->paginate($perPage)
+                ->appends(['child_id' => $selectedChild->id, 'per_page' => $perPage]);
+        }
+
+        return view('parent.schedule', compact('children', 'selectedChild', 'scheduleRows'));
+    }
+
+    public function disputes(Request $request)
+    {
+        $parentId = (int) $request->user()->id;
+        $children = $this->childrenForParent($parentId);
+        $childIds = $children->pluck('id')->all();
+
+        $sessionOptions = $this->sessionOptionsForParent($childIds);
+        $disputeHistory = $this->disputeHistoryForParent($childIds);
+
+        return view('parent.disputes', compact('children', 'sessionOptions', 'disputeHistory'));
     }
 
     public function children(Request $request)
@@ -91,5 +186,59 @@ class DashboardController extends Controller
             })
             ->orderBy('name')
             ->get();
+    }
+
+    private function sessionOptionsForParent(array $childIds)
+    {
+        if (empty($childIds)) {
+            return collect();
+        }
+
+        return TutoringSession::query()
+            ->with(['student:id,name', 'subject:id,name,level', 'invoice:id,invoice_number'])
+            ->whereIn('student_id', $childIds)
+            ->whereIn('status', ['booked', 'confirmed', 'ongoing', 'completed'])
+            ->latest('scheduled_at')
+            ->take(80)
+            ->get();
+    }
+
+    private function rescheduleHistoryForParent(array $childIds)
+    {
+        if (empty($childIds)) {
+            return collect();
+        }
+
+        return RescheduleRequest::query()
+            ->with(['session.student:id,name', 'session.subject:id,name'])
+            ->whereHas('session', function ($query) use ($childIds) {
+                $query->whereIn('student_id', $childIds);
+            })
+            ->latest('id')
+            ->take(20)
+            ->get();
+    }
+
+    private function disputeHistoryForParent(array $childIds)
+    {
+        if (empty($childIds)) {
+            return collect();
+        }
+
+        return Dispute::query()
+            ->with(['session.student:id,name', 'session.subject:id,name'])
+            ->whereHas('session', function ($query) use ($childIds) {
+                $query->whereIn('student_id', $childIds);
+            })
+            ->latest('id')
+            ->take(20)
+            ->get();
+    }
+
+    private function resolvePerPage(Request $request, int $default = 20): int
+    {
+        $allowed = [10, 25, 50, 100];
+        $requested = (int) $request->query('per_page', $default);
+        return in_array($requested, $allowed, true) ? $requested : $default;
     }
 }

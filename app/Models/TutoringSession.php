@@ -20,6 +20,7 @@ class TutoringSession extends Model
         'schedule_slot_id',
         'scheduled_at',
         'duration_minutes',
+        'delivery_mode',
         'status',
         'locked_at',
         'locked_expires_at',
@@ -69,5 +70,10 @@ class TutoringSession extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function scheduleSlot()
+    {
+        return $this->belongsTo(ScheduleSlot::class, 'schedule_slot_id');
     }
 }

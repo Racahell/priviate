@@ -8,17 +8,6 @@
 
 @section('content')
 @if($showAnalytics)
-<div class="analytics-toolbar card">
-    <div class="form-inline">
-        <select class="form-control input-sm" aria-label="periode">
-            <option>Last 6 Month</option>
-        </select>
-        <select class="form-control input-sm" aria-label="lokasi">
-            <option>Select store location</option>
-        </select>
-    </div>
-</div>
-
 <div class="analytics-kpi-grid section">
     <div class="analytics-kpi">
         <p class="stat-label">SALES</p>
@@ -28,8 +17,8 @@
     </div>
     <div class="analytics-kpi">
         <p class="stat-label">PROFIT</p>
-        <p class="stat-value">Rp {{ number_format($analytics['kpi']['this_month']['amount'] * 0.35, 0, ',', '.') }}</p>
-        <p class="card-meta">Margin estimasi bulan ini</p>
+        <p class="stat-value">Rp {{ number_format((float) data_get($analytics, 'kpi.this_month_profit.amount', 0), 0, ',', '.') }}</p>
+        <p class="card-meta">Profit aktual bulan ini</p>
         <div class="mini-meter"><span style="width: 52%"></span></div>
     </div>
     <div class="analytics-kpi">
@@ -41,12 +30,15 @@
 </div>
 
 <div class="analytics-main-grid">
-    <div class="card analytics-chart-card">
-        <h3 class="card-title">Product Sale Mix</h3>
-        <div class="chart-shell"><div id="productMixChart" class="custom-chart" style="height:250px;"></div></div>
-    </div>
-    <div class="card analytics-chart-card">
-        <h3 class="card-title">Profit and Loss</h3>
+    <div class="card analytics-chart-card analytics-chart-card-wide">
+        <div class="split-header">
+            <h3 class="card-title">Profit and Loss</h3>
+            <select id="chartTypePeriod" class="form-control input-sm">
+                <option value="bar">Bar</option>
+                <option value="line">Line</option>
+                <option value="pie">Pie</option>
+            </select>
+        </div>
         <div class="chart-shell">
             <div id="periodChart" class="custom-chart" style="height:250px;"></div>
         </div>
@@ -70,6 +62,11 @@
         <div class="split-header">
             <h3 class="card-title">Sales vs Target Over Time</h3>
             <div class="split-actions">
+                <select id="chartTypeSalesTarget" class="form-control input-sm">
+                    <option value="line">Line</option>
+                    <option value="bar">Bar</option>
+                    <option value="pie">Pie</option>
+                </select>
                 <a class="btn {{ $analytics['selected_period'] === 'weekly' ? 'btn-primary' : 'btn-outline' }}" href="{{ route('dashboard', ['period' => 'weekly']) }}">Mingguan</a>
                 <a class="btn {{ $analytics['selected_period'] === 'monthly' ? 'btn-primary' : 'btn-outline' }}" href="{{ route('dashboard', ['period' => 'monthly']) }}">Bulanan</a>
                 <a class="btn {{ $analytics['selected_period'] === 'yearly' ? 'btn-primary' : 'btn-outline' }}" href="{{ route('dashboard', ['period' => 'yearly']) }}">Tahunan</a>
@@ -80,7 +77,14 @@
         </div>
     </div>
     <div class="card analytics-side-card">
-        <h3 class="card-title">Sales by Payment Method</h3>
+        <div class="split-header">
+            <h3 class="card-title">Sales by Payment Method</h3>
+            <select id="chartTypePaymentMethod" class="form-control input-sm">
+                <option value="bar">Bar</option>
+                <option value="line">Line</option>
+                <option value="pie">Pie</option>
+            </select>
+        </div>
         <div class="chart-shell">
             <div id="hourlyIncomeChart" class="custom-chart" style="height:300px;"></div>
         </div>
@@ -104,9 +108,6 @@
         @break
     @case('tentor')
         @include('dashboard.partials.tentor')
-        @break
-    @case('manager')
-        @include('dashboard.partials.manager')
         @break
     @case('orang_tua')
         @include('dashboard.partials.orang_tua')
@@ -187,25 +188,30 @@
             container.appendChild(svg);
         }
 
-        function buildGroupedBars(container, labels, a, b) {
+        function buildGroupedBars(container, labels, a, b, colorA, colorB) {
             if (!container) return;
             var w = Math.max(container.clientWidth || 600, 320);
             var h = container.clientHeight || 250;
             var m = { top: 18, right: 16, bottom: 40, left: 28 };
             var innerW = w - m.left - m.right;
             var innerH = h - m.top - m.bottom;
-            var maxVal = Math.max(1, Math.max.apply(Math, a.concat(b)));
+            var secondary = Array.isArray(b) ? b : [];
+            var merged = a.concat(secondary);
+            var maxVal = Math.max(1, Math.max.apply(Math, merged));
             container.innerHTML = '';
             var svg = createSvg('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', height: '100%' });
 
             labels.forEach(function (label, i) {
                 var groupW = innerW / labels.length;
-                var barW = Math.max(6, Math.min(22, groupW * 0.34));
+                var hasSecond = secondary.length > 0;
+                var barW = Math.max(6, Math.min(22, groupW * (hasSecond ? 0.34 : 0.62)));
                 var x = m.left + (i * groupW) + (groupW * 0.16);
                 var h1 = (a[i] / maxVal) * innerH;
-                var h2 = (b[i] / maxVal) * innerH;
-                svg.appendChild(createSvg('rect', { x: x, y: m.top + innerH - h1, width: barW, height: h1, rx: 4, fill: '#2f5fb8' }));
-                svg.appendChild(createSvg('rect', { x: x + barW + 4, y: m.top + innerH - h2, width: barW, height: h2, rx: 4, fill: '#9bb4e6' }));
+                svg.appendChild(createSvg('rect', { x: x, y: m.top + innerH - h1, width: barW, height: h1, rx: 4, fill: colorA || '#2f5fb8' }));
+                if (hasSecond) {
+                    var h2 = (secondary[i] / maxVal) * innerH;
+                    svg.appendChild(createSvg('rect', { x: x + barW + 4, y: m.top + innerH - h2, width: barW, height: h2, rx: 4, fill: colorB || '#9bb4e6' }));
+                }
                 if (i % Math.ceil(labels.length / 6) === 0 || i === labels.length - 1) {
                     var tx = createSvg('text', { x: x + barW, y: h - 12, 'text-anchor': 'middle', 'font-size': '11', fill: '#6d7a96' });
                     tx.textContent = label;
@@ -265,34 +271,61 @@
             container.appendChild(legend);
         }
 
-        function buildHorizontalBars(container, labels, values) {
-            if (!container) return;
-            container.innerHTML = '';
-            var maxVal = Math.max(1, Math.max.apply(Math, values));
-            var list = document.createElement('div');
-            list.className = 'hbar-list';
-
-            labels.forEach(function (label, i) {
-                var row = document.createElement('div');
-                row.className = 'hbar-row';
-                var width = (values[i] / maxVal) * 100;
-                row.innerHTML = '<div class="hbar-head"><span>' + label + '</span><strong>Rp ' + formatCompact(values[i]) + '</strong></div><div class="hbar-track"><span style="width:' + width + '%;"></span></div>';
-                list.appendChild(row);
-            });
-
-            container.appendChild(list);
+        function buildLineSingle(container, labels, values) {
+            var zeros = values.map(function () { return 0; });
+            buildLineChart(container, labels, values, zeros);
         }
 
-        buildDonut(document.getElementById('productMixChart'), methodLabels, methodData);
-        buildGroupedBars(document.getElementById('periodChart'), periodLabels, periodData, targetData);
-        buildLineChart(document.getElementById('salesTargetChart'), periodLabels, periodData, targetData);
-        buildHorizontalBars(document.getElementById('hourlyIncomeChart'), methodLabels, methodData);
+        function renderChartByType(containerId, type, labels, a, b, labelA, labelB) {
+            var container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (type === 'pie') {
+                if (Array.isArray(b) && b.length > 0) {
+                    var sumA = a.reduce(function (s, v) { return s + Number(v || 0); }, 0);
+                    var sumB = b.reduce(function (s, v) { return s + Number(v || 0); }, 0);
+                    buildDonut(container, [labelA || 'Data A', labelB || 'Data B'], [sumA, sumB]);
+                } else {
+                    buildDonut(container, labels, a);
+                }
+                return;
+            }
+
+            if (type === 'line') {
+                if (Array.isArray(b) && b.length > 0) {
+                    buildLineChart(container, labels, a, b);
+                } else {
+                    buildLineSingle(container, labels, a);
+                }
+                return;
+            }
+
+            if (Array.isArray(b) && b.length > 0) {
+                buildGroupedBars(container, labels, a, b);
+            } else {
+                buildGroupedBars(container, labels, a, null, '#2f5fb8');
+            }
+        }
+
+        var chartTypePeriod = document.getElementById('chartTypePeriod');
+        var chartTypeSalesTarget = document.getElementById('chartTypeSalesTarget');
+        var chartTypePaymentMethod = document.getElementById('chartTypePaymentMethod');
+
+        function renderAll() {
+            renderChartByType('periodChart', chartTypePeriod ? chartTypePeriod.value : 'bar', periodLabels, periodData, targetData, 'Sales', 'Target');
+            renderChartByType('salesTargetChart', chartTypeSalesTarget ? chartTypeSalesTarget.value : 'line', periodLabels, periodData, targetData, 'Sales', 'Target');
+            renderChartByType('hourlyIncomeChart', chartTypePaymentMethod ? chartTypePaymentMethod.value : 'bar', methodLabels, methodData, null, 'Payment', null);
+        }
+
+        [chartTypePeriod, chartTypeSalesTarget, chartTypePaymentMethod].forEach(function (select) {
+            if (!select) return;
+            select.addEventListener('change', renderAll);
+        });
+
+        renderAll();
 
         window.addEventListener('resize', function () {
-            buildDonut(document.getElementById('productMixChart'), methodLabels, methodData);
-            buildGroupedBars(document.getElementById('periodChart'), periodLabels, periodData, targetData);
-            buildLineChart(document.getElementById('salesTargetChart'), periodLabels, periodData, targetData);
-            buildHorizontalBars(document.getElementById('hourlyIncomeChart'), methodLabels, methodData);
+            renderAll();
         });
     })();
 </script>

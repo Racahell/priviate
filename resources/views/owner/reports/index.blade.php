@@ -1,142 +1,145 @@
 @extends('layouts.master')
 
-@section('title', 'Laporan Dashboard')
+@section('title', 'Laporan Keuangan')
 
 @section('content')
+@php($reportRoutePrefix = $reportRoutePrefix ?? 'owner')
 <div class="grid grid-3">
     <div class="card">
-        <h3 class="card-title">Total Income</h3>
+        <h3 class="card-title">Pendapatan</h3>
         <p class="stat-value">Rp {{ number_format((float) $totalIncome, 0, ',', '.') }}</p>
     </div>
     <div class="card">
-        <h3 class="card-title">Total Expense</h3>
+        <h3 class="card-title">Beban</h3>
         <p class="stat-value">Rp {{ number_format((float) $totalExpense, 0, ',', '.') }}</p>
     </div>
     <div class="card">
-        <h3 class="card-title">Net Profit/Loss</h3>
+        <h3 class="card-title">Laba Bersih</h3>
         <p class="stat-value">Rp {{ number_format((float) $totalProfit, 0, ',', '.') }}</p>
     </div>
 </div>
 
 <div class="card section">
-    <h3 class="card-title">Filter Laporan</h3>
-    <form method="GET" class="form-inline section report-filter-row">
-        <label>Periode</label>
-        <select name="period" class="form-control">
-            <option value="weekly" {{ $period === 'weekly' ? 'selected' : '' }}>Mingguan</option>
-            <option value="monthly" {{ $period === 'monthly' ? 'selected' : '' }}>Bulanan</option>
-            <option value="yearly" {{ $period === 'yearly' ? 'selected' : '' }}>Tahunan</option>
-        </select>
-        <label>Diagram</label>
-        <select name="chart" class="form-control">
-            <option value="bar" {{ $chartType === 'bar' ? 'selected' : '' }}>Profit vs Loss</option>
-            <option value="line" {{ $chartType === 'line' ? 'selected' : '' }}>Income vs Expense</option>
-            <option value="pie" {{ $chartType === 'pie' ? 'selected' : '' }}>Komposisi</option>
-        </select>
-        <label>Dari</label>
-        <input type="date" name="from" value="{{ $from }}" class="form-control">
-        <label>Sampai</label>
-        <input type="date" name="to" value="{{ $to }}" class="form-control">
-        <button class="btn btn-primary" type="submit">Terapkan</button>
-        <a href="{{ route('owner.reports.export', ['period' => $period]) }}" class="btn btn-success">Export CSV</a>
+    <h3 class="card-title">Filter Laporan Keuangan</h3>
+    <form method="GET" class="section">
+        <div class="report-filter-grid">
+            <div class="form-group">
+                <label>Periode</label>
+                <select name="period" class="form-control">
+                    <option value="weekly" {{ $period === 'weekly' ? 'selected' : '' }}>Mingguan</option>
+                    <option value="monthly" {{ $period === 'monthly' ? 'selected' : '' }}>Bulanan</option>
+                    <option value="yearly" {{ $period === 'yearly' ? 'selected' : '' }}>Tahunan</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Diagram</label>
+                <select name="chart" class="form-control">
+                    <option value="bar" {{ $chartType === 'bar' ? 'selected' : '' }}>Profit vs Loss</option>
+                    <option value="line" {{ $chartType === 'line' ? 'selected' : '' }}>Income vs Expense</option>
+                    <option value="pie" {{ $chartType === 'pie' ? 'selected' : '' }}>Komposisi</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dari</label>
+                <input type="date" name="from" value="{{ $from }}" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Sampai</label>
+                <input type="date" name="to" value="{{ $to }}" class="form-control">
+            </div>
+        </div>
+        <div class="split-actions report-filter-actions">
+            <button class="btn btn-primary" type="submit">Terapkan</button>
+            <a href="{{ route($reportRoutePrefix . '.reports.export', ['period' => $period, 'from' => $from, 'to' => $to, 'format' => 'print']) }}" class="btn btn-outline" target="_blank">Print</a>
+            <a href="{{ route($reportRoutePrefix . '.reports.export', ['period' => $period, 'from' => $from, 'to' => $to, 'format' => 'excel']) }}" class="btn btn-success">Export Excel</a>
+            <a href="{{ route($reportRoutePrefix . '.reports.export', ['period' => $period, 'from' => $from, 'to' => $to, 'format' => 'pdf']) }}" class="btn btn-default" target="_blank">Export PDF</a>
+        </div>
     </form>
 </div>
 
 <div class="card section">
-    <h3 class="card-title">Input Operational Cost</h3>
-    <form method="POST" action="{{ route('owner.reports.cost.store') }}" class="form-inline section">
-        @csrf
-        <input type="date" name="cost_date" class="form-control" required>
-        <input type="text" name="category" class="form-control" placeholder="Kategori" required>
-        <input type="number" step="0.01" name="amount" class="form-control" placeholder="Nominal" required>
-        <input type="text" name="description" class="form-control" placeholder="Deskripsi">
-        <button class="btn btn-outline" type="submit">Simpan Cost</button>
-    </form>
-</div>
-
-<div class="card section">
-    <h3 class="card-title">Grafik Berdasarkan Data Database</h3>
-    <div class="chart-shell">
-        <canvas id="ownerReportChart" height="320"></canvas>
+    <h3 class="card-title">Laporan Laba Rugi</h3>
+    <p class="card-meta">Periode {{ strtoupper($period) }} | Generated {{ $generatedAt->format('d M Y H:i') }}</p>
+    <div class="table-wrap section">
+        <table>
+            <thead>
+                <tr>
+                    <th>Pos</th>
+                    <th style="text-align:right;">Nilai</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($incomeStatement as $line)
+                    <tr>
+                        <td>{{ $line['label'] }}</td>
+                        <td style="text-align:right;">Rp {{ number_format((float) $line['amount'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
 </div>
+
+<div class="card section">
+    <h3 class="card-title">Laporan Arus Kas</h3>
+    <div class="table-wrap section">
+        <table>
+            <thead>
+                <tr>
+                    <th>Pos</th>
+                    <th style="text-align:right;">Nilai</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($cashFlowStatement as $line)
+                    <tr>
+                        <td>{{ $line['label'] }}</td>
+                        <td style="text-align:right;">Rp {{ number_format((float) $line['amount'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card section">
+    <h3 class="card-title">Rincian Beban Operasional</h3>
+    <div class="table-wrap section">
+        <table>
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>Kategori</th>
+                    <th style="text-align:right;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($expenseBreakdown as $idx => $cost)
+                    <tr>
+                        <td>{{ $idx + 1 }}</td>
+                        <td>{{ $cost['category'] }}</td>
+                        <td style="text-align:right;">Rp {{ number_format((float) $cost['total'], 0, ',', '.') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="3">Belum ada data beban operasional.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if(($canInputOperationalCost ?? false) === true)
+    <div class="card section">
+        <h3 class="card-title">Input Beban Operasional</h3>
+        <form method="POST" action="{{ route($reportRoutePrefix . '.reports.cost.store') }}" class="form-inline section">
+            @csrf
+            <input type="date" name="cost_date" class="form-control" required>
+            <input type="text" name="category" class="form-control" placeholder="Kategori" required>
+            <input type="number" step="0.01" name="amount" class="form-control" placeholder="Nominal" required>
+            <input type="text" name="description" class="form-control" placeholder="Deskripsi">
+            <button class="btn btn-outline" type="submit">Simpan Cost</button>
+        </form>
+    </div>
+@endif
+
 @endsection
-
-@push('scripts')
-<script src="{{ asset('assets/chart-master/Chart.js') }}"></script>
-<script>
-(function () {
-    var canvas = document.getElementById('ownerReportChart');
-    if (!canvas || typeof Chart === 'undefined') return;
-
-    var labels = @json($labels);
-    var chartType = @json($chartType);
-    var income = @json($revenueSeries);
-    var expense = @json($expenseSeries);
-    var gain = @json($gainSeries);
-    var loss = @json($lossSeries);
-    var totals = {
-        income: Number(@json($totalIncome)),
-        expense: Number(@json($totalExpense))
-    };
-
-    var chart;
-    function renderChart() {
-        if (chart) { chart.destroy && chart.destroy(); }
-
-        if (chartType === 'pie') {
-            chart = new Chart(canvas.getContext('2d')).Doughnut([
-                { value: totals.income, color: '#3f78c8', label: 'Income' },
-                { value: totals.expense, color: '#a7b8d6', label: 'Expense' }
-            ], { responsive: true, animationSteps: 50, percentageInnerCutout: 56 });
-            return;
-        }
-
-        if (chartType === 'line') {
-            chart = new Chart(canvas.getContext('2d')).Line({
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Income',
-                        fillColor: 'rgba(63,120,200,0.12)',
-                        strokeColor: 'rgba(63,120,200,1)',
-                        pointColor: 'rgba(63,120,200,1)',
-                        pointStrokeColor: '#fff',
-                        data: income
-                    },
-                    {
-                        label: 'Expense',
-                        fillColor: 'rgba(167,184,214,0.12)',
-                        strokeColor: 'rgba(167,184,214,1)',
-                        pointColor: 'rgba(167,184,214,1)',
-                        pointStrokeColor: '#fff',
-                        data: expense
-                    }
-                ]
-            }, { responsive: true, bezierCurve: true, scaleBeginAtZero: true });
-            return;
-        }
-
-        chart = new Chart(canvas.getContext('2d')).Bar({
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Gain',
-                    fillColor: 'rgba(63,120,200,0.78)',
-                    strokeColor: 'rgba(63,120,200,1)',
-                    data: gain
-                },
-                {
-                    label: 'Loss',
-                    fillColor: 'rgba(167,184,214,0.86)',
-                    strokeColor: 'rgba(167,184,214,1)',
-                    data: loss
-                }
-            ]
-        }, { responsive: true, scaleBeginAtZero: true });
-    }
-
-    renderChart();
-})();
-</script>
-@endpush

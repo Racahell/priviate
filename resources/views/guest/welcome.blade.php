@@ -19,11 +19,20 @@
         <div class="home-hero-visual">
             <div class="home-hero-panel">
                 <p class="home-panel-label">Kelas Live Hari Ini</p>
-                <h3>24 sesi aktif berjalan</h3>
+                <h3>{{ number_format((int) $liveSessionCount) }} sesi aktif berjalan</h3>
                 <ul>
-                    <li><span></span> Matematika SMA - 16:00</li>
-                    <li><span></span> Bahasa Inggris SMP - 17:30</li>
-                    <li><span></span> Fisika UTBK - 19:00</li>
+                    @forelse($liveSessions as $session)
+                        <li>
+                            <span></span>
+                            {{ $session->subject?->name ?? 'Mapel belum diatur' }}
+                            @if(!empty($session->subject?->level))
+                                {{ ' ' . $session->subject->level }}
+                            @endif
+                            - {{ optional($session->scheduled_at)->format('H:i') ?? '--:--' }}
+                        </li>
+                    @empty
+                        <li><span></span> Belum ada sesi yang sedang berjalan</li>
+                    @endforelse
                 </ul>
             </div>
             <div class="home-orb home-orb-1"></div>

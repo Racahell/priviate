@@ -5,7 +5,8 @@
 @section('content')
 <div class="card section">
     <h3 class="card-title">Riwayat Import</h3>
-    <div class="table-wrap">
+    @include('components.pagination-controls', ['paginator' => $jobs, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
+<div class="table-wrap">
         <table>
             <thead>
                 <tr>
@@ -33,6 +34,8 @@
             </tbody>
         </table>
     </div>
-    {{ $jobs->links() }}
 </div>
+
+    @include('components.pagination-controls', ['paginator' => $jobs, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
+

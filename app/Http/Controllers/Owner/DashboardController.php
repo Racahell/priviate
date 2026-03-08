@@ -51,13 +51,22 @@ class DashboardController extends Controller
         ));
     }
 
-    public function financials()
+    public function financials(Request $request)
     {
+        $perPage = $this->resolvePerPage($request, 20);
         // P&L Report Logic (Simplified)
         $entries = JournalEntry::with('items.coa')
             ->orderBy('transaction_date', 'desc')
-            ->paginate(20);
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('owner.financials', compact('entries'));
+    }
+
+    private function resolvePerPage(Request $request, int $default = 20): int
+    {
+        $allowed = [10, 25, 50, 100];
+        $requested = (int) $request->query('per_page', $default);
+        return in_array($requested, $allowed, true) ? $requested : $default;
     }
 }

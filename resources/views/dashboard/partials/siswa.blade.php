@@ -68,7 +68,8 @@
     </div>
 
     <div class="split-actions">
-        <a href="{{ route('student.booking') }}" class="btn btn-primary">Booking Paket</a>
+        <a href="{{ route('student.packages') }}" class="btn btn-primary">Pilih Paket</a>
+        <a href="{{ route('student.booking') }}" class="btn btn-outline">Booking Sesi</a>
         <a href="{{ route('student.invoices') }}" class="btn btn-outline">Lihat Invoice</a>
         <a href="{{ route('profile.edit') }}" class="btn btn-outline">Perbarui Profil</a>
     </div>

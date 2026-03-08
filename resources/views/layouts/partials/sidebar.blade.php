@@ -24,15 +24,27 @@
         </a>
     </li>
     <li>
-        <a class="" href="{{ route('student.booking') }}">
+        <a class="" href="{{ route('student.packages') }}">
             <i class="icon_calendar"></i>
-            <span>Booking Les</span>
+            <span>Paket Belajar</span>
+        </a>
+    </li>
+    <li>
+        <a class="" href="{{ route('student.booking') }}">
+            <i class="icon_clock_alt"></i>
+            <span>Booking Sesi</span>
         </a>
     </li>
     <li>
         <a class="" href="{{ route('student.invoices') }}">
             <i class="icon_document_alt"></i>
             <span>Tagihan</span>
+        </a>
+    </li>
+    <li>
+        <a class="" href="{{ route('profile.edit') }}">
+            <i class="icon_profile"></i>
+            <span>Profil</span>
         </a>
     </li>
     @endcan
@@ -84,7 +96,7 @@
         </a>
     </li>
     <li>
-        <a class="" href="{{ route('owner.financials') }}">
+        <a class="" href="{{ route('owner.reports') }}">
             <i class="icon_currency"></i>
             <span>Laporan Keuangan</span>
         </a>

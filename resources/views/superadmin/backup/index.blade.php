@@ -25,7 +25,8 @@
 
 <div class="card section">
     <h3 class="card-title">Daftar Backup</h3>
-    <div class="table-wrap section">
+    @include('components.pagination-controls', ['paginator' => $backups, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
+<div class="table-wrap section">
         <table>
             <thead>
                 <tr>
@@ -63,7 +64,8 @@
             </tbody>
         </table>
     </div>
-
-    {{ $backups->links() }}
 </div>
+
+    @include('components.pagination-controls', ['paginator' => $backups, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
+

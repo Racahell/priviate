@@ -8,6 +8,9 @@ use App\Models\LoginEvent;
 use App\Models\PasswordResetRequest;
 use App\Models\RegistrationEmailVerification;
 use App\Models\SecurityEvent;
+use App\Models\Subject;
+use App\Models\TentorProfile;
+use App\Models\TentorSkill;
 use App\Models\User;
 use App\Models\UserConsent;
 use App\Services\AuditService;
@@ -101,9 +104,17 @@ class AuthController extends Controller
 
         $verification->update(['used_at' => now()]);
         if (!$user->email_verified_at) {
+            $isTentor = $user->hasRole('tentor');
+            $canActivate = true;
+            if ($isTentor) {
+                $profileStatus = (string) (TentorProfile::query()
+                    ->where('user_id', $user->id)
+                    ->value('verification_status') ?? 'PENDING_REVIEW');
+                $canActivate = in_array(strtoupper($profileStatus), ['APPROVED', 'VERIFIED'], true);
+            }
             $user->forceFill([
                 'email_verified_at' => now(),
-                'is_active' => true,
+                'is_active' => $canActivate,
             ])->save();
         }
 
@@ -116,8 +127,13 @@ class AuthController extends Controller
     {
         $captchaQuestion = $this->captchaService->generate();
         $recaptchaSiteKey = config('services.recaptcha.site_key');
+        $subjects = Subject::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->orderBy('level')
+            ->get(['id', 'name', 'level']);
 
-        return view('auth.register', compact('captchaQuestion', 'recaptchaSiteKey'));
+        return view('auth.register', compact('captchaQuestion', 'recaptchaSiteKey', 'subjects'));
     }
 
     public function login(Request $request)
@@ -160,6 +176,17 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
             return back()->withErrors([
                 'email' => 'Email belum diverifikasi. Cek inbox untuk link verifikasi.',
+            ])->withInput();
+        }
+        if (!(bool) $user->is_active) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            $inactiveMessage = $user->hasRole('tentor')
+                ? 'Akun tentor Anda belum aktif. Menunggu verifikasi admin.'
+                : 'Akun Anda belum aktif. Menunggu persetujuan admin.';
+            return back()->withErrors([
+                'email' => $inactiveMessage,
             ])->withInput();
         }
         $role = $user->getRoleNames()->first();
@@ -234,17 +261,26 @@ class AuthController extends Controller
 
     public function showForgotPasswordForm()
     {
-        return view('auth.forgot-password');
+        $prefillEmail = auth()->check()
+            ? auth()->user()?->email
+            : request()->query('email');
+
+        return view('auth.forgot-password', compact('prefillEmail'));
     }
 
     public function sendForgotPasswordOtp(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'nullable|email',
             'channel' => 'required|in:EMAIL,WHATSAPP',
         ]);
 
-        $user = User::where('email', strtolower($request->email))->first();
+        $targetEmail = strtolower((string) ($request->email ?: $request->user()?->email));
+        if (empty($targetEmail)) {
+            return back()->withErrors(['email' => 'Email wajib diisi.']);
+        }
+
+        $user = User::where('email', $targetEmail)->first();
         if (!$user) {
             return back()->withErrors(['email' => 'Email tidak ditemukan.']);
         }
@@ -313,13 +349,39 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:siswa,tentor,orang_tua',
             'terms' => 'required|accepted',
+            'phone' => 'nullable|string|max:50',
+            'education' => 'nullable|string|max:255',
+            'experience_years' => 'nullable|integer|min:0|max:60',
+            'domicile' => 'nullable|string|max:255',
+            'teaching_mode' => 'nullable|in:online,offline,hybrid',
+            'offline_coverage' => 'nullable|string|max:255',
+            'tentor_bio' => 'nullable|string',
+            'teaching_subject_ids' => 'nullable|array',
+            'teaching_subject_ids.*' => 'integer|exists:subjects,id',
+            'cv_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'diploma_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'certificate_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'id_card_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'profile_photo_file' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+            'intro_video_url' => 'nullable|url|max:255',
         ]);
+
+        if ($validated['role'] === 'tentor') {
+            $request->validate([
+                'phone' => 'required|string|max:50',
+                'education' => 'required|string|max:255',
+                'experience_years' => 'required|integer|min:0|max:60',
+                'domicile' => 'required|string|max:255',
+                'teaching_mode' => 'required|in:online,offline,hybrid',
+                'teaching_subject_ids' => 'required|array|min:1',
+            ]);
+        }
 
         if (!$this->captchaService->verify($request)) {
             return back()->withErrors(['captcha' => 'Verifikasi captcha gagal.'])->withInput();
@@ -328,6 +390,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => strtolower($request->email),
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'email_verified_at' => null,
             'is_active' => false,
@@ -337,6 +400,45 @@ class AuthController extends Controller
         $user->assignRole($request->role);
         if ($request->role === 'siswa' && empty($user->code)) {
             $user->forceFill(['code' => $this->generateStudentCode()])->save();
+        }
+        if ($request->role === 'tentor') {
+            $profile = TentorProfile::query()->create([
+                'user_id' => $user->id,
+                'bio' => $request->tentor_bio,
+                'education' => $request->education,
+                'experience_years' => $request->experience_years,
+                'domicile' => $request->domicile,
+                'teaching_mode' => $request->teaching_mode ?? 'online',
+                'offline_coverage' => $request->offline_coverage,
+                'verification_status' => 'PENDING_REVIEW',
+                'is_verified' => false,
+                'cv_path' => $this->storeTentorFile($request, 'cv_file', $user->id),
+                'diploma_path' => $this->storeTentorFile($request, 'diploma_file', $user->id),
+                'certificate_path' => $this->storeTentorFile($request, 'certificate_file', $user->id),
+                'id_card_path' => $this->storeTentorFile($request, 'id_card_file', $user->id),
+                'profile_photo_path' => $this->storeTentorFile($request, 'profile_photo_file', $user->id),
+                'intro_video_url' => $request->intro_video_url,
+            ]);
+
+            $subjectIds = collect($request->input('teaching_subject_ids', []))
+                ->filter(fn ($v) => is_numeric($v))
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values()
+                ->all();
+
+            foreach ($subjectIds as $subjectId) {
+                TentorSkill::query()->updateOrCreate(
+                    [
+                        'tentor_profile_id' => $profile->id,
+                        'subject_id' => $subjectId,
+                    ],
+                    [
+                        'hourly_rate' => 0,
+                        'is_verified' => false,
+                    ]
+                );
+            }
         }
 
         if (Schema::hasTable('user_consents')) {
@@ -491,5 +593,19 @@ class AuthController extends Controller
         } while ($exists);
 
         return $candidate;
+    }
+
+    private function storeTentorFile(Request $request, string $field, int $userId): ?string
+    {
+        if (!$request->hasFile($field)) {
+            return null;
+        }
+
+        $file = $request->file($field);
+        if (!$file || !$file->isValid()) {
+            return null;
+        }
+
+        return $file->store("tentor-docs/{$userId}", 'public');
     }
 }

@@ -5,7 +5,6 @@
         <div class="stat-item"><p class="stat-label">Total Tentor</p><p class="stat-value">{{ $summary['tentors'] ?? 0 }}</p></div>
     </div>
     <div class="split-actions section">
-        <a class="btn btn-outline" href="{{ route('owner.financials') }}">Financial Ledger</a>
-        <a class="btn btn-outline" href="{{ route('owner.reports') }}">Laporan</a>
+        <a class="btn btn-outline" href="{{ route('owner.reports') }}">Laporan Keuangan</a>
     </div>
 </div>

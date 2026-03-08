@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\ScheduleSlot;
 use App\Models\StudentTutorMonthlyAssignment;
-use App\Models\TentorAvailability;
 use App\Models\TentorProfile;
 use App\Models\TutoringSession;
 use Carbon\Carbon;
@@ -13,74 +12,130 @@ use Illuminate\Support\Facades\DB;
 
 class SessionSlotService
 {
-    public function bookForStudent(int $studentId, int $subjectId, int $slotId): TutoringSession
+    public function canBookSlotForStudent(int $studentId, int $subjectId, int $slotId, int $bookingDay): bool
     {
-        return DB::transaction(function () use ($studentId, $subjectId, $slotId) {
-            $paidInvoiceId = Invoice::query()
+        $slot = ScheduleSlot::query()->find($slotId);
+        if (!$slot || strtoupper((string) $slot->status) !== 'OPEN') {
+            return false;
+        }
+
+        [$start, $end] = $this->buildStartEndFromSlotAndDay($slot, $bookingDay);
+        if (!$start || !$end) {
+            return false;
+        }
+        if ($this->hasStudentConflict($studentId, $start, $end)) {
+            return false;
+        }
+
+        return (bool) $this->pickTentorId($subjectId, $start, $end, null);
+    }
+
+    public function bookRecurringForStudent(int $studentId, int $subjectId, array $selections, int $invoiceId, string $deliveryMode = 'online', int $weeks = 4): array
+    {
+        return DB::transaction(function () use ($studentId, $subjectId, $selections, $invoiceId, $deliveryMode, $weeks) {
+            $invoice = Invoice::query()
+                ->where('id', $invoiceId)
                 ->where('user_id', $studentId)
                 ->where('status', 'paid')
-                ->latest('id')
-                ->value('id');
-
-            if (!$paidInvoiceId) {
-                throw new \RuntimeException('Booking sesi hanya bisa setelah pembayaran berhasil.');
-            }
-
-            $slot = ScheduleSlot::query()->lockForUpdate()->findOrFail($slotId);
-            if (strtoupper((string) $slot->status) !== 'OPEN') {
-                throw new \RuntimeException('Slot sesi sudah diambil. Pilih slot lain.');
-            }
-
-            $start = Carbon::parse($slot->start_at);
-            $end = Carbon::parse($slot->end_at);
-            $duration = (int) max(1, $start->diffInMinutes($end));
-            $monthKey = $start->format('Y-m');
-
-            $assignment = StudentTutorMonthlyAssignment::query()
-                ->where('student_id', $studentId)
-                ->where('subject_id', $subjectId)
-                ->where('month_key', $monthKey)
-                ->where('is_active', true)
                 ->first();
-
-            $primaryTentorId = $assignment?->tentor_id;
-            $selectedTentorId = $this->pickTentorId($subjectId, $start, $end, $primaryTentorId);
-            if (!$selectedTentorId) {
-                throw new \RuntimeException('Belum ada tentor tersedia untuk mapel & slot ini.');
+            if (!$invoice) {
+                throw new \RuntimeException('Invoice tidak valid untuk booking.');
             }
 
-            if (!$assignment) {
-                StudentTutorMonthlyAssignment::query()->create([
-                    'student_id' => $studentId,
-                    'subject_id' => $subjectId,
-                    'tentor_id' => $selectedTentorId,
-                    'month_key' => $monthKey,
-                    'is_active' => true,
-                ]);
-                $primaryTentorId = $selectedTentorId;
+            $created = [];
+            foreach ($selections as $selection) {
+                $slotId = (int) ($selection['slot_id'] ?? 0);
+                $bookingDay = (int) ($selection['booking_day'] ?? -1);
+                $slot = ScheduleSlot::query()->lockForUpdate()->findOrFail($slotId);
+                if (strtoupper((string) $slot->status) !== 'OPEN') {
+                    throw new \RuntimeException('Slot sesi tidak tersedia.');
+                }
+
+                [$baseStart, $baseEnd] = $this->buildStartEndFromSlotAndDay($slot, $bookingDay);
+                if (!$baseStart || !$baseEnd) {
+                    throw new \RuntimeException('Tanggal/jam sesi harus di masa depan.');
+                }
+
+                for ($w = 0; $w < max(1, $weeks); $w++) {
+                    $start = $baseStart->copy()->addWeeks($w);
+                    $end = $baseEnd->copy()->addWeeks($w);
+                    $duration = (int) max(1, $start->diffInMinutes($end));
+                    $monthKey = $start->format('Y-m');
+
+                    $assignment = StudentTutorMonthlyAssignment::query()
+                        ->where('student_id', $studentId)
+                        ->where('subject_id', $subjectId)
+                        ->where('month_key', $monthKey)
+                        ->where('is_active', true)
+                        ->first();
+
+                    $primaryTentorId = $assignment?->tentor_id;
+                    $selectedTentorId = $this->pickTentorId($subjectId, $start, $end, $primaryTentorId);
+                    if (!$selectedTentorId) {
+                        throw new \RuntimeException('Belum ada tentor tersedia untuk salah satu jadwal yang dipilih.');
+                    }
+
+                    if (!$assignment) {
+                        StudentTutorMonthlyAssignment::query()->create([
+                            'student_id' => $studentId,
+                            'subject_id' => $subjectId,
+                            'tentor_id' => $selectedTentorId,
+                            'month_key' => $monthKey,
+                            'is_active' => true,
+                        ]);
+                        $primaryTentorId = $selectedTentorId;
+                    }
+
+                    if ($this->hasStudentConflict($studentId, $start, $end)) {
+                        throw new \RuntimeException('Ada bentrok jadwal pada tanggal/jam yang dipilih.');
+                    }
+
+                    $created[] = TutoringSession::query()->create([
+                        'student_id' => $studentId,
+                        'tentor_id' => $selectedTentorId,
+                        'primary_tentor_id' => $primaryTentorId,
+                        'is_substitute' => $primaryTentorId !== $selectedTentorId,
+                        'subject_id' => $subjectId,
+                        'invoice_id' => $invoice->id,
+                        'schedule_slot_id' => $slot->id,
+                        'scheduled_at' => $start,
+                        'duration_minutes' => $duration,
+                        'delivery_mode' => strtolower($deliveryMode) === 'offline' ? 'offline' : 'online',
+                        'status' => 'booked',
+                    ]);
+                }
             }
 
-            $slot->update([
-                'subject_id' => $subjectId,
-                'student_id' => $studentId,
-                'tentor_id' => $selectedTentorId,
-                'status' => 'BOOKED',
-                'locked_at' => now(),
-            ]);
-
-            return TutoringSession::query()->create([
-                'student_id' => $studentId,
-                'tentor_id' => $selectedTentorId,
-                'primary_tentor_id' => $primaryTentorId,
-                'is_substitute' => $primaryTentorId !== $selectedTentorId,
-                'subject_id' => $subjectId,
-                'invoice_id' => $paidInvoiceId,
-                'schedule_slot_id' => $slot->id,
-                'scheduled_at' => $start,
-                'duration_minutes' => $duration,
-                'status' => 'booked',
-            ]);
+            return $created;
         });
+    }
+
+    private function buildStartEndFromSlotAndDay(ScheduleSlot $slot, int $bookingDay): array
+    {
+        if ($bookingDay < 0 || $bookingDay > 6) {
+            return [null, null];
+        }
+
+        $today = now()->startOfDay();
+        $slotStart = Carbon::parse($slot->start_at);
+        $slotEnd = Carbon::parse($slot->end_at);
+
+        $dayDiff = ($bookingDay - $today->dayOfWeek + 7) % 7;
+        $targetDate = $today->copy()->addDays($dayDiff);
+        $start = $targetDate->copy()->setTime($slotStart->hour, $slotStart->minute, $slotStart->second);
+        $end = $targetDate->copy()->setTime($slotEnd->hour, $slotEnd->minute, $slotEnd->second);
+
+        if ($slotEnd->lessThanOrEqualTo($slotStart)) {
+            $end->addDay();
+        }
+
+        // If selected day/time has passed for current week, roll to next week.
+        if ($start->lessThanOrEqualTo(now())) {
+            $start->addWeek();
+            $end->addWeek();
+        }
+
+        return [$start, $end];
     }
 
     public function reassignForReschedule(TutoringSession $session, Carbon $newStart, Carbon $newEnd): TutoringSession
@@ -140,29 +195,9 @@ class SessionSlotService
             return null;
         }
 
-        $day = $start->dayOfWeek;
-        $startTime = $start->format('H:i:s');
-        $endTime = $end->format('H:i:s');
-
-        $availableTentorIds = TentorAvailability::query()
-            ->join('tentor_profiles', 'tentor_profiles.id', '=', 'tentor_availabilities.tentor_profile_id')
-            ->whereIn('tentor_profiles.user_id', $candidateIds)
-            ->where('tentor_availabilities.day_of_week', $day)
-            ->where('tentor_availabilities.is_available', true)
-            ->where('tentor_availabilities.start_time', '<=', $startTime)
-            ->where('tentor_availabilities.end_time', '>=', $endTime)
-            ->pluck('tentor_profiles.user_id')
-            ->unique()
-            ->values()
-            ->all();
-
-        if (empty($availableTentorIds)) {
-            return null;
-        }
-
-        $ordered = $availableTentorIds;
-        if ($preferredTentorId && in_array($preferredTentorId, $availableTentorIds, true)) {
-            $ordered = array_values(array_unique(array_merge([$preferredTentorId], $availableTentorIds)));
+        $ordered = $candidateIds;
+        if ($preferredTentorId && in_array($preferredTentorId, $candidateIds, true)) {
+            $ordered = array_values(array_unique(array_merge([$preferredTentorId], $candidateIds)));
         }
 
         foreach ($ordered as $tentorId) {
@@ -191,5 +226,22 @@ class SessionSlotService
             })
             ->exists();
     }
-}
 
+    private function hasStudentConflict(int $studentId, Carbon $start, Carbon $end): bool
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return TutoringSession::query()
+            ->where('student_id', $studentId)
+            ->whereIn('status', ['booked', 'ongoing', 'locked', 'confirmed'])
+            ->where('scheduled_at', '<', $end)
+            ->where(function ($query) use ($driver, $start) {
+                if ($driver === 'sqlite') {
+                    $query->whereRaw("datetime(scheduled_at, '+' || duration_minutes || ' minutes') > ?", [$start]);
+                } else {
+                    $query->whereRaw('DATE_ADD(scheduled_at, INTERVAL duration_minutes MINUTE) > ?', [$start]);
+                }
+            })
+            ->exists();
+    }
+}
