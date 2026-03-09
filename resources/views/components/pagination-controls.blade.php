@@ -4,9 +4,13 @@
     $position = $position ?? 'bottom';
     $showPerPage = $showPerPage ?? true;
     $showPager = $showPager ?? true;
+    $isPaginator = is_object($paginator)
+        && method_exists($paginator, 'currentPage')
+        && method_exists($paginator, 'perPage')
+        && method_exists($paginator, 'onFirstPage');
 @endphp
 
-@if($paginator)
+@if($isPaginator)
     <div class="split-actions section" style="justify-content:space-between; gap:10px; align-items:center; flex-wrap:nowrap; {{ $position === 'top' ? 'margin-top:0;' : '' }}">
         <div>
             @if($showPerPage)

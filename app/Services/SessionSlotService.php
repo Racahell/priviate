@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\ScheduleSlot;
+use App\Models\StudentPackageEntitlement;
 use App\Models\StudentTutorMonthlyAssignment;
 use App\Models\TentorProfile;
 use App\Models\TutoringSession;
@@ -30,9 +31,9 @@ class SessionSlotService
         return (bool) $this->pickTentorId($subjectId, $start, $end, null);
     }
 
-    public function bookRecurringForStudent(int $studentId, int $subjectId, array $selections, int $invoiceId, string $deliveryMode = 'online', int $weeks = 4): array
+    public function bookRecurringForStudent(int $studentId, int $subjectId, array $selections, int $invoiceId, string $deliveryMode = 'online', int $weeks = 4, ?StudentPackageEntitlement $entitlement = null): array
     {
-        return DB::transaction(function () use ($studentId, $subjectId, $selections, $invoiceId, $deliveryMode, $weeks) {
+        return DB::transaction(function () use ($studentId, $subjectId, $selections, $invoiceId, $deliveryMode, $weeks, $entitlement) {
             $invoice = Invoice::query()
                 ->where('id', $invoiceId)
                 ->where('user_id', $studentId)
@@ -40,6 +41,17 @@ class SessionSlotService
                 ->first();
             if (!$invoice) {
                 throw new \RuntimeException('Invoice tidak valid untuk booking.');
+            }
+
+            $sessionsToCreate = count($selections) * max(1, $weeks);
+            if ($entitlement) {
+                $entitlement = StudentPackageEntitlement::query()->lockForUpdate()->findOrFail($entitlement->id);
+                if ($entitlement->invoice_id !== $invoice->id || $entitlement->user_id !== $studentId) {
+                    throw new \RuntimeException('Hak paket tidak cocok dengan invoice booking.');
+                }
+                if ($entitlement->status !== 'ACTIVE' || (int) $entitlement->remaining_sessions < $sessionsToCreate) {
+                    throw new \RuntimeException('Jatah sesi pada paket ini tidak mencukupi.');
+                }
             }
 
             $created = [];
@@ -104,6 +116,16 @@ class SessionSlotService
                         'status' => 'booked',
                     ]);
                 }
+            }
+
+            if ($entitlement) {
+                $usedSessions = (int) $entitlement->used_sessions + count($created);
+                $remainingSessions = max(0, (int) $entitlement->total_sessions - $usedSessions);
+                $entitlement->update([
+                    'used_sessions' => $usedSessions,
+                    'remaining_sessions' => $remainingSessions,
+                    'status' => $remainingSessions > 0 ? 'ACTIVE' : 'EXHAUSTED',
+                ]);
             }
 
             return $created;

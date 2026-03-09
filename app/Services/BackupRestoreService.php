@@ -105,8 +105,9 @@ class BackupRestoreService
     public function wipeDatabaseData(?int $preserveUserId = null): void
     {
         $tables = $this->databaseTables();
+        $connection = DB::connection();
 
-        DB::beginTransaction();
+        $connection->beginTransaction();
         try {
             Schema::disableForeignKeyConstraints();
             foreach (array_reverse($tables) as $table) {
@@ -119,12 +120,14 @@ class BackupRestoreService
 
                 DB::table($table)->delete();
             }
-            Schema::enableForeignKeyConstraints();
-            DB::commit();
+            $connection->commit();
         } catch (\Throwable $e) {
-            Schema::enableForeignKeyConstraints();
-            DB::rollBack();
+            if ($this->hasActiveTransaction($connection)) {
+                $connection->rollBack();
+            }
             throw $e;
+        } finally {
+            Schema::enableForeignKeyConstraints();
         }
     }
 
@@ -150,7 +153,6 @@ class BackupRestoreService
 
     private function applySqlStatements(string $sql, bool $wipeFirst): void
     {
-        DB::beginTransaction();
         try {
             if ($wipeFirst) {
                 $this->wipeDatabaseData((int) auth()->id());
@@ -164,12 +166,10 @@ class BackupRestoreService
                 }
                 DB::unprepared($trimmed);
             }
-            Schema::enableForeignKeyConstraints();
-            DB::commit();
         } catch (\Throwable $e) {
-            Schema::enableForeignKeyConstraints();
-            DB::rollBack();
             throw $e;
+        } finally {
+            Schema::enableForeignKeyConstraints();
         }
     }
 
@@ -285,5 +285,11 @@ class BackupRestoreService
         }
 
         return $absoluteDir;
+    }
+
+    private function hasActiveTransaction($connection): bool
+    {
+        return $connection->transactionLevel() > 0
+            && $connection->getPdo()->inTransaction();
     }
 }

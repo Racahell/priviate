@@ -15,6 +15,7 @@ use App\Models\Payment;
 use App\Models\RescheduleRequest;
 use App\Models\ScheduleAssignment;
 use App\Models\ScheduleSlot;
+use App\Models\StudentPackageEntitlement;
 use App\Models\TeacherPayout;
 use App\Models\TutoringSession;
 use App\Models\User;
@@ -27,9 +28,13 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OperationsController extends Controller
 {
+    private const RESCHEDULE_LIMIT_PER_SESSION = 2;
+    private const RESCHEDULE_MIN_HOURS_BEFORE_SESSION = 6;
+
     public function __construct(
         private readonly AuditService $auditService,
         private readonly DiscordAlertService $discordAlertService,
@@ -89,8 +94,11 @@ class OperationsController extends Controller
 
         $invoice = Invoice::findOrFail($validated['invoice_id']);
         abort_unless((int) $invoice->user_id === (int) auth()->id(), 403);
-        if ($invoice->status === 'paid') {
+        if (strtolower((string) $invoice->status) === 'paid') {
             return back()->withErrors(['invoice_id' => 'Invoice sudah dibayar.']);
+        }
+        if (strtolower((string) $invoice->status) === 'cancelled') {
+            return back()->withErrors(['invoice_id' => 'Invoice sudah dibatalkan dan tidak bisa dibayar.']);
         }
         if ((float) $validated['amount'] !== (float) $invoice->total_amount) {
             return back()->withErrors(['amount' => 'Nominal pembayaran harus sesuai total invoice.']);
@@ -106,6 +114,11 @@ class OperationsController extends Controller
         ]);
 
         $invoice->update(['status' => 'paid']);
+        try {
+            $this->ensurePackageEntitlement($invoice);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['invoice_id' => $e->getMessage()]);
+        }
 
         $this->auditService->log('PAYMENT_SUCCESS', $payment, [], $payment->toArray());
 
@@ -151,18 +164,25 @@ class OperationsController extends Controller
         if (strtolower((string) $invoice->status) !== 'paid') {
             return back()->withErrors(['invoice_id' => 'Invoice belum dibayar.'])->withInput();
         }
-        $alreadyBookedFromInvoice = TutoringSession::query()
-            ->where('student_id', auth()->id())
-            ->where('invoice_id', $invoice->id)
-            ->exists();
-        if ($alreadyBookedFromInvoice) {
-            return back()->withErrors(['invoice_id' => 'Invoice ini sudah dibooking. Silakan beli paket lagi.'])->withInput();
+        try {
+            $entitlement = $this->ensurePackageEntitlement($invoice);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['invoice_id' => $e->getMessage()])->withInput();
+        }
+        if ($entitlement->status !== 'ACTIVE' || (int) $entitlement->remaining_sessions <= 0) {
+            return back()->withErrors(['invoice_id' => 'Jatah sesi dari invoice ini sudah habis.'])->withInput();
         }
 
         $bookingPlan = $this->resolveBookingPlanForInvoice($invoice);
         $weeklyQuota = (int) $bookingPlan['quota'];
         $bookingWeeks = (int) $bookingPlan['weeks'];
         $isTrial = (bool) $bookingPlan['is_trial'];
+        $requiredSessions = max(1, $weeklyQuota * $bookingWeeks);
+        if ((int) $entitlement->remaining_sessions < $requiredSessions) {
+            return back()->withErrors([
+                'invoice_id' => 'Sisa sesi pada paket ini tidak cukup untuk booking yang dipilih.',
+            ])->withInput();
+        }
         $days = collect($validated['booking_days'] ?? [])->values();
         $slotIds = collect($validated['slot_ids'] ?? [])->values();
         $count = min($days->count(), $slotIds->count());
@@ -190,7 +210,8 @@ class OperationsController extends Controller
                 $selections->all(),
                 (int) $invoice->id,
                 (string) $validated['delivery_mode'],
-                $bookingWeeks
+                $bookingWeeks,
+                $entitlement
             );
         } catch (\RuntimeException $e) {
             return back()->withErrors(['slot_ids' => $e->getMessage()])->withInput();
@@ -288,10 +309,40 @@ class OperationsController extends Controller
         $isTrial = (bool) ($package?->trial_enabled ?? false);
 
         return [
+            'id' => (int) $packageId,
             'quota' => $isTrial ? 1 : max(1, $quota),
             'weeks' => $isTrial ? 1 : 4,
             'is_trial' => $isTrial,
         ];
+    }
+
+    private function ensurePackageEntitlement(Invoice $invoice): StudentPackageEntitlement
+    {
+        if (!Schema::hasTable('student_package_entitlements')) {
+            throw new \RuntimeException('Tabel entitlement paket belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
+        }
+
+        $invoice->loadMissing('packageEntitlement');
+
+        if ($invoice->packageEntitlement) {
+            return $invoice->packageEntitlement;
+        }
+
+        $plan = $this->resolveBookingPlanForInvoice($invoice);
+        $totalSessions = max(1, (int) $plan['quota'] * (int) $plan['weeks']);
+
+        return StudentPackageEntitlement::query()->create([
+            'user_id' => (int) $invoice->user_id,
+            'package_id' => (int) ($plan['id'] ?: 0) ?: null,
+            'invoice_id' => (int) $invoice->id,
+            'weekly_quota' => (int) $plan['quota'],
+            'booking_weeks' => (int) $plan['weeks'],
+            'total_sessions' => $totalSessions,
+            'used_sessions' => 0,
+            'remaining_sessions' => $totalSessions,
+            'is_trial' => (bool) $plan['is_trial'],
+            'status' => 'ACTIVE',
+        ]);
     }
 
     public function createSchedule(Request $request)
@@ -552,12 +603,35 @@ class OperationsController extends Controller
     public function createPayout(Request $request)
     {
         $validated = $request->validate([
-            'teacher_id' => 'required|integer',
+            'session_id' => 'required|integer|exists:tutoring_sessions,id',
             'net_amount' => 'required|numeric|min:1',
         ]);
 
+        $session = TutoringSession::query()
+            ->with('materialReport')
+            ->findOrFail((int) $validated['session_id']);
+
+        if ($session->tentor_id === null) {
+            return back()->withErrors(['session_id' => 'Sesi ini belum memiliki tentor.'])->withInput();
+        }
+
+        if (!$this->isSessionEligibleForPayout($session)) {
+            return back()->withErrors([
+                'session_id' => 'Payout hanya bisa dibuat untuk sesi yang sudah selesai dan sudah memiliki laporan materi.',
+            ])->withInput();
+        }
+
+        $existingPayout = TeacherPayout::query()
+            ->where('tutoring_session_id', $session->id)
+            ->exists();
+
+        if ($existingPayout) {
+            return back()->withErrors(['session_id' => 'Sesi ini sudah memiliki payout.'])->withInput();
+        }
+
         $payout = TeacherPayout::create([
-            'teacher_id' => $validated['teacher_id'],
+            'teacher_id' => $session->tentor_id,
+            'tutoring_session_id' => $session->id,
             'gross_amount' => $validated['net_amount'],
             'deduction_amount' => 0,
             'net_amount' => $validated['net_amount'],
@@ -567,6 +641,14 @@ class OperationsController extends Controller
         $this->auditService->log('TEACHER_PAYOUT_CREATED', $payout);
 
         return back()->with('status', 'Payout dibuat.');
+    }
+
+    private function isSessionEligibleForPayout(TutoringSession $session): bool
+    {
+        $status = strtolower((string) $session->status);
+
+        return in_array($status, ['completed', 'auto_completed'], true)
+            && $session->materialReport()->exists();
     }
 
     public function markPayoutPaid(int $id)
@@ -597,10 +679,27 @@ class OperationsController extends Controller
         if (strtoupper((string) $slot->status) !== 'OPEN') {
             return back()->withErrors(['schedule_slot_id' => 'Jam sesi tidak tersedia.'])->withInput();
         }
+        if (!$this->canRequestReschedule($session)) {
+            return back()->withErrors([
+                'tutoring_session_id' => 'Reschedule hanya bisa diajukan maksimal 2 kali dan minimal 6 jam sebelum sesi dimulai.',
+            ])->withInput();
+        }
+        $existingPendingRequest = RescheduleRequest::query()
+            ->where('tutoring_session_id', $session->id)
+            ->whereIn('status', ['PENDING', 'pending'])
+            ->exists();
+        if ($existingPendingRequest) {
+            return back()->withErrors([
+                'tutoring_session_id' => 'Masih ada permintaan reschedule yang menunggu persetujuan.',
+            ])->withInput();
+        }
 
         [$newStart, $newEnd] = $this->buildRescheduleDateTimeFromDayAndSlot($slot, (int) $validated['booking_day']);
         if (!$newStart || !$newEnd) {
             return back()->withErrors(['booking_day' => 'Hari/jam reschedule tidak valid.'])->withInput();
+        }
+        if ($session->scheduled_at && $newStart->equalTo($session->scheduled_at)) {
+            return back()->withErrors(['booking_day' => 'Jadwal baru tidak boleh sama dengan jadwal saat ini.'])->withInput();
         }
 
         $req = RescheduleRequest::create([
@@ -647,6 +746,9 @@ class OperationsController extends Controller
     public function approveReschedule(int $id)
     {
         $req = RescheduleRequest::findOrFail($id);
+        if (strtoupper((string) $req->status) !== 'PENDING') {
+            return back()->withErrors(['status' => 'Reschedule ini sudah diproses sebelumnya.']);
+        }
         $session = TutoringSession::findOrFail($req->tutoring_session_id);
 
         try {
@@ -671,6 +773,9 @@ class OperationsController extends Controller
     public function denyReschedule(int $id)
     {
         $req = RescheduleRequest::findOrFail($id);
+        if (strtoupper((string) $req->status) !== 'PENDING') {
+            return back()->withErrors(['status' => 'Reschedule ini sudah diproses sebelumnya.']);
+        }
         $req->update([
             'status' => 'DENIED',
             'approved_at' => now(),
@@ -678,6 +783,24 @@ class OperationsController extends Controller
         ]);
         $this->auditService->log('RESCHEDULE_DENIED', $req);
         return back()->with('status', 'Reschedule ditolak.');
+    }
+
+    private function canRequestReschedule(TutoringSession $session): bool
+    {
+        $status = strtolower((string) $session->status);
+        if (!in_array($status, ['booked', 'confirmed', 'ongoing'], true)) {
+            return false;
+        }
+
+        if (!$session->scheduled_at || now()->diffInHours($session->scheduled_at, false) < self::RESCHEDULE_MIN_HOURS_BEFORE_SESSION) {
+            return false;
+        }
+
+        $requestCount = RescheduleRequest::query()
+            ->where('tutoring_session_id', $session->id)
+            ->count();
+
+        return $requestCount < self::RESCHEDULE_LIMIT_PER_SESSION;
     }
 
     private function resolveAccessibleSession(Request $request, int $sessionId): TutoringSession

@@ -16,6 +16,7 @@
                     <th>No</th>
                     <th>No Invoice</th>
                     <th>Tipe Paket</th>
+                    <th>Jatah Sesi</th>
                     <th>Status Pembayaran</th>
                     <th>Status Booking</th>
                     <th>Aksi</th>
@@ -33,6 +34,11 @@
                             @else
                                 ({{ $row->weekly_quota }} sesi/minggu)
                             @endif
+                        </td>
+                        <td>
+                            {{ $row->used_sessions }}/{{ $row->total_sessions }}
+                            <br>
+                            <small>Sisa: {{ $row->remaining_sessions }}</small>
                         </td>
                         <td>
                             <span class="badge {{ strtoupper($row->payment_status) === 'PAID' ? 'badge-success' : 'badge-warning' }}">
@@ -71,7 +77,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">Belum ada invoice paket.</td></tr>
+                    <tr><td colspan="7">Belum ada invoice paket.</td></tr>
                 @endforelse
             </tbody>
         </table>

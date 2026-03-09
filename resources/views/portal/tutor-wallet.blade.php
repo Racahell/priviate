@@ -83,7 +83,11 @@
                         <td>{{ $row->bank_name }}</td>
                         <td>{{ $row->account_number }}</td>
                         <td>{{ $row->account_holder }}</td>
-                        <td><span class="badge {{ $row->status === 'completed' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper($row->status) }}</span></td>
+                        <td>
+                            <span class="badge {{ $row->status === 'completed' ? 'badge-success' : ($row->status === 'rejected' ? 'badge-danger' : 'badge-warning') }}">
+                                {{ strtoupper($row->status) }}
+                            </span>
+                        </td>
                         <td>{{ optional($row->created_at)->format('d M Y H:i') ?: '-' }}</td>
                     </tr>
                 @empty
@@ -101,6 +105,7 @@
             <thead>
                 <tr>
                     <th>No</th>
+                    <th>Sesi</th>
                     <th>Nominal</th>
                     <th>Status</th>
                     <th>Dibayar</th>
@@ -110,12 +115,19 @@
                 @forelse($payouts as $index => $payout)
                     <tr>
                         <td>{{ $index + 1 }}</td>
+                        <td>
+                            @if($payout->session)
+                                {{ optional($payout->session->scheduled_at)->format('d M Y H:i') ?: 'Sesi #' . $payout->session->id }}
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td>Rp {{ number_format((float) $payout->net_amount, 0, ',', '.') }}</td>
-                        <td><span class="badge {{ $payout->status === 'paid' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper($payout->status) }}</span></td>
+                        <td><span class="badge {{ strtoupper((string) $payout->status) === 'PAID' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper((string) $payout->status) }}</span></td>
                         <td>{{ optional($payout->paid_at)->format('d M Y H:i') ?: '-' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4">Belum ada payout.</td></tr>
+                    <tr><td colspan="5">Belum ada payout.</td></tr>
                 @endforelse
             </tbody>
         </table>

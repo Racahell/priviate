@@ -28,4 +28,9 @@ class ScheduleSlot extends Model
         'locked_at' => 'datetime',
         'lock_expires_at' => 'datetime',
     ];
+
+    public function tutoringSessions()
+    {
+        return $this->hasMany(TutoringSession::class, 'schedule_slot_id');
+    }
 }

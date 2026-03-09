@@ -46,4 +46,9 @@ class Invoice extends Model
     {
         return $this->hasOne(TutoringSession::class);
     }
+
+    public function packageEntitlement()
+    {
+        return $this->hasOne(StudentPackageEntitlement::class);
+    }
 }

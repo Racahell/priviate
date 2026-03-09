@@ -29,4 +29,9 @@ class Withdrawal extends Model
     {
         return $this->belongsTo(Wallet::class);
     }
+
+    public function walletTransactions()
+    {
+        return $this->morphMany(WalletTransaction::class, 'reference');
+    }
 }

@@ -7,8 +7,8 @@
     @php($detail = $detail ?? null)
     <div class="split-header">
         <div>
-            <h3 class="card-title">Master Sesi (Jam Booking)</h3>
-            <p class="card-meta">Admin menentukan slot waktu yang bisa dipilih siswa.</p>
+            <h3 class="card-title">Master Slot Booking</h3>
+            <p class="card-meta">Slot adalah template jam yang bisa dipilih saat booking. Booking aktual tercatat di tutoring session.</p>
         </div>
         @if(($isSuperadmin ?? false) === true)
             <div class="split-actions">
@@ -49,8 +49,7 @@
                     <th>Mulai</th>
                     <th>Selesai</th>
                     <th>Status</th>
-                    <th>Siswa</th>
-                    <th>Tentor</th>
+                    <th>Dipakai Booking</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -64,8 +63,7 @@
                         <td>{{ optional($slot->start_at)->format('H:i') }}</td>
                         <td>{{ optional($slot->end_at)->format('H:i') }}</td>
                         <td><span class="badge {{ strtoupper((string) $slot->status) === 'OPEN' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper((string) $slot->status) }}</span></td>
-                        <td>{{ $slot->student_id ?: '-' }}</td>
-                        <td>{{ $slot->tentor_id ?: '-' }}</td>
+                        <td>{{ (int) ($slot->tutoring_sessions_count ?? 0) }}</td>
                         <td>
                             @if(($tab ?? 'active') === 'active')
                                 <div class="split-actions">
@@ -88,7 +86,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ ($tab ?? 'active') === 'active' ? 8 : 7 }}">Belum ada master sesi.</td></tr>
+                    <tr><td colspan="{{ ($tab ?? 'active') === 'active' ? 7 : 6 }}">Belum ada master slot.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -99,7 +97,7 @@
 <div class="modal-overlay is-open">
     <div class="modal-card">
         <div class="split-header">
-            <h3 class="card-title">Detail Sesi #{{ $detail->id }}</h3>
+            <h3 class="card-title">Detail Slot #{{ $detail->id }}</h3>
             <a href="{{ route('admin.sessions') }}" class="btn btn-outline btn-xs">Tutup</a>
         </div>
         <form method="POST" action="{{ route('admin.sessions.update', $detail->id) }}" class="section modal-form">
@@ -119,12 +117,11 @@
                     @php($st = old('status', $detail->status))
                     <select name="status" class="form-control" required>
                         <option value="OPEN" {{ $st === 'OPEN' ? 'selected' : '' }}>OPEN</option>
-                        <option value="LOCKED" {{ $st === 'LOCKED' ? 'selected' : '' }}>LOCKED</option>
-                        <option value="BOOKED" {{ $st === 'BOOKED' ? 'selected' : '' }}>BOOKED</option>
                         <option value="CLOSED" {{ $st === 'CLOSED' ? 'selected' : '' }}>CLOSED</option>
                     </select>
                 </div>
             </div>
+            <p class="card-meta">Slot yang sudah dipakai booking tidak boleh diubah atau dihapus.</p>
             <div class="split-actions">
                 <button class="btn btn-primary btn-sm" type="submit">Update</button>
                 <button class="btn btn-warning btn-sm" type="submit" form="delete-session-{{ $detail->id }}" onclick="return confirm('Hapus sesi ini?');">Hapus</button>

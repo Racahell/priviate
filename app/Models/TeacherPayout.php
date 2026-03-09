@@ -12,6 +12,7 @@ class TeacherPayout extends Model
     protected $fillable = [
         'payroll_period_id',
         'teacher_id',
+        'tutoring_session_id',
         'gross_amount',
         'deduction_amount',
         'net_amount',
@@ -26,4 +27,9 @@ class TeacherPayout extends Model
         'net_amount' => 'decimal:2',
         'paid_at' => 'datetime',
     ];
+
+    public function session()
+    {
+        return $this->belongsTo(TutoringSession::class, 'tutoring_session_id');
+    }
 }

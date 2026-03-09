@@ -83,6 +83,9 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
         Route::get('/kyc', [PortalController::class, 'adminKyc'])->name('kyc');
         Route::get('/disputes', [ModuleDataController::class, 'index'])->defaults('module', 'disputes')->name('disputes');
         Route::get('/monitor', [PortalController::class, 'adminMonitor'])->name('monitor');
+        Route::post('/withdrawals/{id}/approve', [PortalController::class, 'adminApproveWithdrawal'])->name('withdrawals.approve');
+        Route::post('/withdrawals/{id}/reject', [PortalController::class, 'adminRejectWithdrawal'])->name('withdrawals.reject');
+        Route::post('/withdrawals/{id}/paid', [PortalController::class, 'adminMarkWithdrawalPaid'])->name('withdrawals.paid');
         Route::get('/activity-logs', [PortalController::class, 'activityLogs'])->name('activity.logs');
         Route::get('/reports', [OwnerReportController::class, 'index'])->name('reports');
         Route::get('/reports/data', [OwnerReportController::class, 'data'])->name('reports.data');

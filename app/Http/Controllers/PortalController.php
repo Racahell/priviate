@@ -54,12 +54,15 @@ class PortalController extends Controller
     {
         $user = $request->user();
         $perPage = $this->resolvePerPage($request, 12);
-        $invoices = Invoice::query()
+        $invoiceQuery = Invoice::query()
             ->with('items')
             ->where('user_id', $user->id)
-            ->latest('id')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->latest('id');
+        if (Schema::hasTable('student_package_entitlements')) {
+            $invoiceQuery->with('packageEntitlement');
+        }
+
+        $invoices = $invoiceQuery->paginate($perPage)->withQueryString();
 
         $invoiceIds = $invoices->getCollection()->pluck('id')->all();
         $bookedInvoiceIds = TutoringSession::query()
@@ -73,8 +76,16 @@ class PortalController extends Controller
         $invoices->setCollection(
             $invoices->getCollection()->map(function ($invoice) use ($bookedInvoiceMap) {
                 $meta = $this->resolvePackageMetaForInvoice($invoice);
+                $entitlement = $invoice->packageEntitlement;
                 $isPaid = strtolower((string) $invoice->status) === 'paid';
                 $alreadyBooked = !empty($bookedInvoiceMap[(int) $invoice->id]);
+                $derivedTotalSessions = (int) $meta['quota'] * (int) $meta['weeks'];
+                $remainingSessions = (int) ($entitlement->remaining_sessions ?? ($isPaid ? $derivedTotalSessions : 0));
+                $bookingStatus = !$isPaid
+                    ? 'Belum Bayar'
+                    : ($remainingSessions <= 0
+                        ? 'Jatah Habis'
+                        : ($alreadyBooked ? 'Booked' : 'Booking Dulu'));
 
                 return (object) [
                     'invoice_id' => (int) $invoice->id,
@@ -82,10 +93,13 @@ class PortalController extends Controller
                     'package_label' => (string) $meta['name'],
                     'weekly_quota' => (int) $meta['quota'],
                     'booking_weeks' => (int) $meta['weeks'],
+                    'total_sessions' => (int) ($entitlement->total_sessions ?? $derivedTotalSessions),
+                    'used_sessions' => (int) ($entitlement->used_sessions ?? 0),
+                    'remaining_sessions' => $remainingSessions,
                     'is_trial' => (bool) $meta['is_trial'],
                     'payment_status' => strtoupper((string) $invoice->status),
-                    'booking_status' => !$isPaid ? 'Belum Bayar' : ($alreadyBooked ? 'Booked' : 'Booking Dulu'),
-                    'can_book' => $isPaid && !$alreadyBooked,
+                    'booking_status' => $bookingStatus,
+                    'can_book' => $isPaid && $remainingSessions > 0 && !$alreadyBooked,
                 ];
             })
         );
@@ -218,39 +232,37 @@ class PortalController extends Controller
 
     public function adminInvoices(Request $request)
     {
-        $isSuperadmin = $request->user()?->hasRole('superadmin');
         $perPage = $this->resolvePerPage($request, 20);
-        $tab = (string) $request->query('tab', 'active');
-        if (!$isSuperadmin) {
-            $tab = 'active';
-        }
-
-        $query = Invoice::query()
+        $invoices = Invoice::query()
             ->with(['user:id,name,email', 'payments'])
-            ->latest('id');
-        if ($tab === 'deleted' && $isSuperadmin) {
-            $query->onlyTrashed();
-        }
-
-        $invoices = $query->paginate($perPage)->withQueryString();
+            ->latest('id')
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('portal.admin-invoices', [
             'invoices' => $invoices,
-            'tab' => $tab,
-            'isSuperadmin' => $isSuperadmin,
         ]);
     }
 
     public function adminInvoicesSoftDelete(Request $request, int $id)
     {
+        $request->validate(['reason' => 'required|string|max:500']);
         $invoice = Invoice::query()->findOrFail($id);
-        $invoice->delete();
+        if (strtolower((string) $invoice->status) === 'paid') {
+            return back()->withErrors(['reason' => 'Invoice yang sudah dibayar tidak boleh di-void.']);
+        }
 
-        return back()->with('status', 'Invoice berhasil dihapus (soft delete).');
+        $invoice->update([
+            'status' => 'cancelled',
+            'notes' => trim((string) ($invoice->notes ? $invoice->notes . PHP_EOL : '')) . 'CANCELLED REASON: ' . trim((string) $request->input('reason')),
+        ]);
+
+        return back()->with('status', 'Invoice berhasil dibatalkan.');
     }
 
     public function adminInvoicesBulkDelete(Request $request)
     {
+        $request->validate(['reason' => 'required|string|max:500']);
         $ids = collect($request->input('ids', []))
             ->filter(fn ($v) => is_numeric($v))
             ->map(fn ($v) => (int) $v)
@@ -260,9 +272,28 @@ class PortalController extends Controller
             return back()->withErrors(['ids' => 'Pilih minimal satu invoice.']);
         }
 
-        Invoice::query()->whereIn('id', $ids)->get()->each->delete();
+        $reason = trim((string) $request->input('reason'));
+        $failed = [];
 
-        return back()->with('status', 'Invoice terpilih berhasil dihapus.');
+        Invoice::query()->whereIn('id', $ids)->get()->each(function (Invoice $invoice) use (&$failed, $reason) {
+            if (strtolower((string) $invoice->status) === 'paid') {
+                $failed[] = $invoice->invoice_number ?: ('#' . $invoice->id);
+                return;
+            }
+
+            $invoice->update([
+                'status' => 'cancelled',
+                'notes' => trim((string) ($invoice->notes ? $invoice->notes . PHP_EOL : '')) . 'CANCELLED REASON: ' . $reason,
+            ]);
+        });
+
+        if (!empty($failed)) {
+            return back()->withErrors([
+                'reason' => 'Sebagian invoice tidak di-void karena sudah dibayar: ' . implode(', ', $failed),
+            ])->with('status', 'Sebagian invoice berhasil dibatalkan.');
+        }
+
+        return back()->with('status', 'Invoice terpilih berhasil dibatalkan.');
     }
 
     public function superadminInvoiceRestore(Request $request, int $id)
@@ -375,6 +406,7 @@ class PortalController extends Controller
             ->where('status', 'completed')
             ->count();
         $payouts = TeacherPayout::query()
+            ->with('session.subject:id,name')
             ->where('teacher_id', $request->user()->id)
             ->latest('id')
             ->take(10)
@@ -474,15 +506,94 @@ class PortalController extends Controller
     {
         $perPage = $this->resolvePerPage($request, 12);
         $todaySessions = TutoringSession::query()
-            ->with(['student:id,name', 'tentor:id,name', 'subject:id,name'])
+            ->with(['student:id,name', 'tentor:id,name', 'subject:id,name', 'materialReport', 'payout'])
             ->whereDate('scheduled_at', today())
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();
 
+        $withdrawals = Withdrawal::query()
+            ->with(['wallet.user:id,name'])
+            ->latest('id')
+            ->take(10)
+            ->get();
+
         return view('portal.admin-monitor', [
             'todaySessions' => $todaySessions,
+            'withdrawals' => $withdrawals,
         ]);
+    }
+
+    public function adminApproveWithdrawal(Request $request, int $id)
+    {
+        $request->validate(['admin_note' => 'nullable|string|max:500']);
+        $withdrawal = Withdrawal::query()->with('wallet')->findOrFail($id);
+
+        if ($withdrawal->status !== 'requested') {
+            return back()->withErrors(['admin_note' => 'Withdrawal ini tidak bisa di-approve lagi.']);
+        }
+
+        $withdrawal->update([
+            'status' => 'processing',
+            'admin_note' => $request->input('admin_note'),
+        ]);
+
+        $withdrawal->walletTransactions()->update(['status' => 'pending']);
+
+        return back()->with('status', 'Withdrawal disetujui dan masuk proses transfer.');
+    }
+
+    public function adminRejectWithdrawal(Request $request, int $id)
+    {
+        $request->validate(['admin_note' => 'required|string|max:500']);
+        $withdrawal = Withdrawal::query()->with('wallet')->findOrFail($id);
+
+        if (!in_array($withdrawal->status, ['requested', 'processing'], true)) {
+            return back()->withErrors(['admin_note' => 'Withdrawal ini tidak bisa ditolak.']);
+        }
+
+        DB::transaction(function () use ($withdrawal, $request) {
+            $wallet = $withdrawal->wallet()->lockForUpdate()->firstOrFail();
+            $wallet->balance = (float) $wallet->balance + (float) $withdrawal->amount;
+            $wallet->save();
+
+            $withdrawal->update([
+                'status' => 'rejected',
+                'admin_note' => (string) $request->input('admin_note'),
+                'processed_at' => now(),
+            ]);
+
+            $withdrawal->walletTransactions()->update([
+                'status' => 'failed',
+                'description' => 'Withdrawal ditolak admin dan saldo dikembalikan',
+                'balance_after' => (float) $wallet->balance,
+            ]);
+        });
+
+        return back()->with('status', 'Withdrawal ditolak dan saldo dikembalikan.');
+    }
+
+    public function adminMarkWithdrawalPaid(Request $request, int $id)
+    {
+        $request->validate(['admin_note' => 'nullable|string|max:500']);
+        $withdrawal = Withdrawal::query()->with('wallet')->findOrFail($id);
+
+        if (!in_array($withdrawal->status, ['requested', 'processing'], true)) {
+            return back()->withErrors(['admin_note' => 'Withdrawal ini tidak bisa ditandai selesai.']);
+        }
+
+        $withdrawal->update([
+            'status' => 'completed',
+            'admin_note' => $request->input('admin_note'),
+            'processed_at' => now(),
+        ]);
+
+        $withdrawal->walletTransactions()->update([
+            'status' => 'success',
+            'description' => 'Withdrawal selesai dibayar admin',
+        ]);
+
+        return back()->with('status', 'Withdrawal ditandai selesai dibayar.');
     }
 
     public function adminSessions(Request $request)
@@ -495,7 +606,9 @@ class PortalController extends Controller
         }
 
         $detailId = $request->query('detail');
-        $slotsQuery = ScheduleSlot::query()->latest('start_at');
+        $slotsQuery = ScheduleSlot::query()
+            ->withCount('tutoringSessions')
+            ->latest('start_at');
         if ($tab === 'deleted' && $isSuperadmin) {
             $slotsQuery->onlyTrashed();
         }
@@ -546,10 +659,15 @@ class PortalController extends Controller
         $validated = $request->validate([
             'start_at' => 'required|date_format:H:i',
             'end_at' => 'required|date_format:H:i',
-            'status' => 'required|in:OPEN,LOCKED,BOOKED,CLOSED',
+            'status' => 'required|in:OPEN,CLOSED',
         ]);
 
         $slot = ScheduleSlot::query()->withTrashed()->findOrFail($id);
+        if ($slot->tutoringSessions()->exists()) {
+            return redirect()->route('admin.sessions')->withErrors([
+                'status' => 'Slot yang sudah dipakai booking tidak boleh diubah. Buat slot baru jika perlu perubahan.',
+            ]);
+        }
         $slotDate = ($slot->start_at ? Carbon::parse($slot->start_at) : now())->startOfDay();
         $startAt = Carbon::parse($slotDate->format('Y-m-d') . ' ' . $validated['start_at']);
         $endAt = Carbon::parse($slotDate->format('Y-m-d') . ' ' . $validated['end_at']);
@@ -569,6 +687,11 @@ class PortalController extends Controller
     public function adminSessionsDelete(int $id)
     {
         $slot = ScheduleSlot::query()->findOrFail($id);
+        if ($slot->tutoringSessions()->exists()) {
+            return redirect()->route('admin.sessions')->withErrors([
+                'status' => 'Slot yang sudah dipakai booking tidak boleh dihapus.',
+            ]);
+        }
         $slot->delete();
 
         return redirect()->route('admin.sessions')->with('status', 'Slot sesi berhasil dihapus.');
@@ -585,7 +708,21 @@ class PortalController extends Controller
             return redirect()->route('admin.sessions')->withErrors(['ids' => 'Pilih minimal satu sesi.']);
         }
 
-        ScheduleSlot::query()->whereIn('id', $ids)->get()->each->delete();
+        $blocked = [];
+        ScheduleSlot::query()->whereIn('id', $ids)->get()->each(function (ScheduleSlot $slot) use (&$blocked) {
+            if ($slot->tutoringSessions()->exists()) {
+                $blocked[] = $slot->id;
+                return;
+            }
+
+            $slot->delete();
+        });
+
+        if (!empty($blocked)) {
+            return redirect()->route('admin.sessions')->withErrors([
+                'ids' => 'Sebagian slot tidak dihapus karena sudah dipakai booking: #' . implode(', #', $blocked),
+            ])->with('status', 'Sebagian slot berhasil dihapus.');
+        }
 
         return redirect()->route('admin.sessions')->with('status', 'Sesi terpilih berhasil dihapus.');
     }
@@ -604,6 +741,11 @@ class PortalController extends Controller
         abort_unless($request->user()?->hasRole('superadmin'), 403);
         $request->validate(['reason' => 'required|string|max:500']);
         $slot = ScheduleSlot::query()->withTrashed()->findOrFail($id);
+        if ($slot->tutoringSessions()->withTrashed()->exists()) {
+            return back()->withErrors([
+                'reason' => 'Slot yang sudah dipakai tutoring session tidak boleh dihapus permanen.',
+            ]);
+        }
         $slot->forceDelete();
 
         return back()->with('status', 'Slot sesi berhasil dihapus permanen.');

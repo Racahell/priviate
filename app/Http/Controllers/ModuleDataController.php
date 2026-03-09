@@ -705,7 +705,7 @@ class ModuleDataController extends Controller
         $validated = $request->validate([
             'start_at' => 'required|date_format:H:i',
             'end_at' => 'required|date_format:H:i',
-            'status' => ['nullable', Rule::in(['OPEN', 'LOCKED', 'BOOKED', 'CLOSED'])],
+            'status' => ['nullable', Rule::in(['OPEN', 'CLOSED'])],
         ]);
 
         $status = $validated['status'] ?? 'OPEN';
@@ -725,6 +725,10 @@ class ModuleDataController extends Controller
         }
 
         $slot = ScheduleSlot::query()->withTrashed()->findOrFail($id);
+        if ($slot->tutoringSessions()->exists()) {
+            return $this->redirectToModuleIndex($request, 'sessions')
+                ->withErrors(['status' => 'Master slot yang sudah dipakai booking tidak boleh diubah.']);
+        }
         $slotDate = ($slot->start_at ? Carbon::parse($slot->start_at) : now())->startOfDay();
         [$startAt, $endAt] = $this->buildSessionDateTime($slotDate, $validated['start_at'], $validated['end_at']);
 

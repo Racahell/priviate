@@ -7,30 +7,21 @@
     <div class="split-header">
         <div>
             <h3 class="card-title">Riwayat Invoice</h3>
-            <p class="card-meta">Kelola data invoice pada sistem.</p>
+            <p class="card-meta">Invoice bersifat immutable. Gunakan status `CANCELLED` untuk pembatalan, bukan delete.</p>
         </div>
-        @if(($isSuperadmin ?? false) === true)
-            <div class="split-actions">
-                <a href="{{ route(request()->routeIs('superadmin.*') ? 'superadmin.invoices' : 'admin.invoices', ['tab' => 'active']) }}" class="btn {{ ($tab ?? 'active') === 'active' ? 'btn-primary' : 'btn-outline' }}">Active</a>
-                <a href="{{ route(request()->routeIs('superadmin.*') ? 'superadmin.invoices' : 'admin.invoices', ['tab' => 'deleted']) }}" class="btn {{ ($tab ?? 'active') === 'deleted' ? 'btn-primary' : 'btn-outline' }}">Deleted</a>
-            </div>
-        @endif
     </div>
 
-    @if(($tab ?? 'active') === 'active')
-        <form method="POST" action="{{ route('admin.invoices.bulkDelete') }}" id="invoice-bulk-delete-form" class="form-inline section">
-            @csrf
-            <button class="btn btn-warning btn-sm" type="submit" onclick="return confirm('Hapus semua invoice yang dipilih?');">Delete Selected</button>
-        </form>
-    @endif
+    <form method="POST" action="{{ route('admin.invoices.bulkDelete') }}" id="invoice-bulk-delete-form" class="form-inline section">
+        @csrf
+        <input type="text" name="reason" class="form-control" placeholder="Alasan cancel bulk" required>
+        <button class="btn btn-warning btn-sm" type="submit" onclick="return confirm('Batalkan semua invoice yang dipilih?');">Cancel Selected</button>
+    </form>
     @include('components.pagination-controls', ['paginator' => $invoices, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
 <div class="table-wrap section">
         <table>
             <thead>
                 <tr>
-                    @if(($tab ?? 'active') === 'active')
-                        <th><input type="checkbox" id="invoice-check-all"></th>
-                    @endif
+                    <th><input type="checkbox" id="invoice-check-all"></th>
                     <th>No</th>
                     <th>No Invoice</th>
                     <th>Total</th>
@@ -43,9 +34,7 @@
             <tbody>
                 @forelse($invoices as $index => $invoice)
                     <tr>
-                        @if(($tab ?? 'active') === 'active')
-                            <td><input type="checkbox" class="invoice-row-check" value="{{ $invoice->id }}"></td>
-                        @endif
+                        <td><input type="checkbox" class="invoice-row-check" value="{{ $invoice->id }}" {{ strtoupper((string) $invoice->status) === 'PAID' ? 'disabled' : '' }}></td>
                         <td>{{ ($invoices->currentPage() - 1) * $invoices->perPage() + $index + 1 }}</td>
                         <td>{{ $invoice->invoice_number ?: '-' }}</td>
                         <td>Rp {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</td>
@@ -53,30 +42,22 @@
                         <td>{{ optional($invoice->issue_date)->format('d M Y') ?: '-' }}</td>
                         <td>{{ optional($invoice->due_date)->format('d M Y') ?: '-' }}</td>
                         <td>
-                            @if(($tab ?? 'active') === 'active')
-                                <form method="POST" action="{{ route('admin.invoices.delete', $invoice->id) }}">
+                            @if(strtoupper((string) $invoice->status) === 'PAID')
+                                <span class="badge badge-success">Locked</span>
+                            @elseif(strtoupper((string) $invoice->status) === 'CANCELLED')
+                                <span class="badge badge-warning">Cancelled</span>
+                            @else
+                                <form method="POST" action="{{ route('admin.invoices.delete', $invoice->id) }}" class="form-inline">
                                     @csrf
                                     @method('DELETE')
-                                    <button class="btn btn-warning btn-xs" type="submit">Delete</button>
+                                    <input type="text" class="form-control input-sm" name="reason" placeholder="Alasan cancel" required>
+                                    <button class="btn btn-warning btn-xs" type="submit">Cancel</button>
                                 </form>
-                            @elseif(($isSuperadmin ?? false) === true && request()->routeIs('superadmin.*'))
-                                <div class="action-stack">
-                                    <form method="POST" action="{{ route('superadmin.invoices.restore', $invoice->id) }}">
-                                        @csrf
-                                        <button class="btn btn-success btn-xs" type="submit">Restore</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('superadmin.invoices.forceDelete', $invoice->id) }}" class="form-inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <input type="text" class="form-control input-sm" name="reason" placeholder="Alasan hard delete" required>
-                                        <button class="btn btn-danger btn-xs" type="submit">Hard Delete</button>
-                                    </form>
-                                </div>
                             @endif
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ ($tab ?? 'active') === 'active' ? 8 : 7 }}">Belum ada invoice.</td></tr>
+                    <tr><td colspan="8">Belum ada invoice.</td></tr>
                 @endforelse
             </tbody>
         </table>

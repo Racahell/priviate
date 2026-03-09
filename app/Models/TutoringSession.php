@@ -76,4 +76,14 @@ class TutoringSession extends Model
     {
         return $this->belongsTo(ScheduleSlot::class, 'schedule_slot_id');
     }
+
+    public function materialReport()
+    {
+        return $this->hasOne(MaterialReport::class, 'tutoring_session_id');
+    }
+
+    public function payout()
+    {
+        return $this->hasOne(TeacherPayout::class, 'tutoring_session_id');
+    }
 }
