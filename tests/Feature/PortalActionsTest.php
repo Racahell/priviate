@@ -74,7 +74,7 @@ class PortalActionsTest extends TestCase
             'tentor_id' => $teacher->id,
             'subject_id' => $subject->id,
             'invoice_id' => $invoice->id,
-            'scheduled_at' => now()->addHour(),
+            'scheduled_at' => now()->subMinute(),
             'duration_minutes' => 90,
             'status' => 'booked',
         ]);
@@ -99,7 +99,7 @@ class PortalActionsTest extends TestCase
         $this->actingAs($student)->post(route('ops.payment.success'), [
             'invoice_id' => $invoice->id,
             'amount' => 100000,
-            'method' => 'manual_transfer',
+            'method' => 'bank_transfer',
             'transaction_id' => 'TX-PORTAL-001',
         ])->assertRedirect();
         $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => 'paid']);
@@ -134,7 +134,7 @@ class PortalActionsTest extends TestCase
         $this->assertDatabaseHas('disputes', ['id' => $dispute->id, 'status' => 'RESOLVED']);
 
         $this->actingAs($admin)->get(route('admin.monitor'))->assertOk();
-        $this->actingAs($admin)->post(route('ops.session.reminder', $session->id))->assertOk();
+        $this->actingAs($admin)->postJson(route('ops.session.reminder', $session->id))->assertOk();
         $this->actingAs($admin)->post(route('ops.payout.create'), [
             'teacher_id' => $teacher->id,
             'net_amount' => 50000,

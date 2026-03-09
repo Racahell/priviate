@@ -337,11 +337,15 @@ class OperationsController extends Controller
         return back()->with('status', 'Jadwal berhasil dibuat dan dikunci.');
     }
 
-    public function sendReminder(int $sessionId)
+    public function sendReminder(Request $request, int $sessionId)
     {
         $session = TutoringSession::findOrFail($sessionId);
         $this->auditService->log('REMINDER_SENT', $session);
-        return response()->json(['ok' => true, 'message' => 'Reminder sent']);
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => 'Reminder sent']);
+        }
+
+        return back()->with('status', 'Reminder berhasil dikirim.');
     }
 
     public function startSession(Request $request, int $sessionId)
@@ -354,11 +358,13 @@ class OperationsController extends Controller
             return back()->withErrors(['status' => 'Sesi belum bisa dimulai sebelum jam yang dijadwalkan.']);
         }
 
+        $location = $this->normalizeLocationPayload($request, 'latitude', 'longitude');
+
         $session->update([
             'status' => 'ongoing',
             'check_in_time' => now(),
-            'check_in_lat' => $request->input('latitude'),
-            'check_in_lng' => $request->input('longitude'),
+            'check_in_lat' => $location['latitude'],
+            'check_in_lng' => $location['longitude'],
         ]);
 
         $this->auditService->log('SESSION_STARTED', $session);
@@ -376,23 +382,65 @@ class OperationsController extends Controller
             return back()->withErrors(['status' => 'Absensi belum bisa dilakukan sebelum jam sesi dimulai.']);
         }
 
+        $teacherLocation = $this->normalizeLocationPayload($request, 'teacher_lat', 'teacher_lng');
+
         $record = AttendanceRecord::create([
             'tutoring_session_id' => $session->id,
             'teacher_id' => $session->tentor_id,
             'student_id' => $session->student_id,
             'teacher_present' => true,
             'student_present' => (bool) $request->boolean('student_present', true),
-            'teacher_lat' => $request->input('teacher_lat'),
-            'teacher_lng' => $request->input('teacher_lng'),
+            'teacher_lat' => $teacherLocation['latitude'],
+            'teacher_lng' => $teacherLocation['longitude'],
             'student_lat' => $request->input('student_lat'),
             'student_lng' => $request->input('student_lng'),
-            'location_status' => $request->input('location_status', 'DENIED'),
+            'location_status' => $teacherLocation['location_status'],
             'attendance_at' => now(),
         ]);
 
         $this->auditService->log('ATTENDANCE_MARKED', $record);
 
         return back()->with('status', 'Absensi direkam.');
+    }
+
+    private function normalizeLocationPayload(Request $request, string $latitudeKey, string $longitudeKey): array
+    {
+        $status = strtoupper((string) $request->input('location_status', 'DENIED'));
+        if ($status !== 'ALLOW') {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        $latitude = $request->input($latitudeKey);
+        $longitude = $request->input($longitudeKey);
+
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        $latitude = round((float) $latitude, 8);
+        $longitude = round((float) $longitude, 8);
+
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        return [
+            'location_status' => 'ALLOW',
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ];
     }
 
     public function submitMaterial(Request $request, int $sessionId)

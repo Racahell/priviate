@@ -10,7 +10,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Tipe</th>
                     <th>Status</th>
                     <th>Total</th>
@@ -19,9 +19,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($jobs as $job)
+                @forelse($jobs as $index => $job)
                     <tr>
-                        <td>{{ $job->id }}</td>
+                        <td>{{ ($jobs->currentPage() - 1) * $jobs->perPage() + $index + 1 }}</td>
                         <td>{{ $job->type }}</td>
                         <td><span class="badge {{ in_array(strtolower((string) $job->status), ['success', 'completed', 'done'], true) ? 'badge-success' : 'badge-warning' }}">{{ $job->status }}</span></td>
                         <td>{{ $job->total_rows }}</td>
@@ -38,4 +38,3 @@
 
     @include('components.pagination-controls', ['paginator' => $jobs, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

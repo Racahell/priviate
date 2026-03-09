@@ -196,7 +196,7 @@ class SystemManagementController extends Controller
     public function createBackup(Request $request)
     {
         $validated = $request->validate([
-            'type' => 'required|in:db,files,config',
+            'type' => 'required|in:db',
             'mode' => 'required|in:update,full',
             'note' => 'nullable|string',
         ]);
@@ -220,12 +220,7 @@ class SystemManagementController extends Controller
 
     public function previewPartialRestore(int $backupId)
     {
-        $backup = BackupJob::findOrFail($backupId);
-        $diff = $this->backupRestoreService->previewPartialRestore($backup);
-
-        $this->auditService->log('RESTORE_PARTIAL_PREVIEW', $backup, [], ['diff' => $diff]);
-
-        return back()->with('diffPreview', $diff)->with('success', 'Preview restore berhasil dibuat.');
+        return back()->with('status', 'Preview partial restore dinonaktifkan untuk backup SQL.');
     }
 
     public function applyPartialRestore(Request $request, int $backupId)
@@ -235,7 +230,7 @@ class SystemManagementController extends Controller
         ]);
 
         $backup = BackupJob::findOrFail($backupId);
-        $restoreJob = $this->backupRestoreService->applyPartialRestore($backup, auth()->id(), $request->reason);
+        $restoreJob = $this->backupRestoreService->restoreFromBackupJob($backup, auth()->id(), $request->reason, false);
 
         $this->auditService->log('RESTORE_PARTIAL_APPLY', $restoreJob);
         $this->discordAlertService->send('Partial Restore Applied', [
@@ -255,7 +250,7 @@ class SystemManagementController extends Controller
         ]);
 
         $backup = BackupJob::findOrFail($backupId);
-        $restoreJob = $this->backupRestoreService->applyDisasterRestore($backup, auth()->id(), $request->reason);
+        $restoreJob = $this->backupRestoreService->restoreFromBackupJob($backup, auth()->id(), $request->reason, true);
 
         $this->auditService->log('DISASTER_RESTORE', $restoreJob);
         $this->discordAlertService->send('Disaster Restore Applied', [
@@ -265,6 +260,50 @@ class SystemManagementController extends Controller
         ], 'critical');
 
         return back()->with('success', 'Disaster restore berhasil dijalankan.');
+    }
+
+    public function downloadBackup(int $backupId)
+    {
+        $backup = BackupJob::findOrFail($backupId);
+        $this->auditService->log('BACKUP_DOWNLOADED', $backup);
+
+        return $this->backupRestoreService->downloadResponse($backup);
+    }
+
+    public function uploadRestoreSql(Request $request)
+    {
+        $validated = $request->validate([
+            'sql_file' => 'required|file|mimes:sql,txt',
+            'reason' => 'required|string|max:500',
+            'wipe_first' => 'nullable|boolean',
+        ]);
+
+        $restoreJob = $this->backupRestoreService->restoreFromUpload(
+            $request->file('sql_file'),
+            auth()->id(),
+            $validated['reason'],
+            (bool) ($validated['wipe_first'] ?? true)
+        );
+
+        $this->auditService->log('SQL_UPLOAD_RESTORE', $restoreJob);
+
+        return back()->with('success', 'File SQL berhasil direstore.');
+    }
+
+    public function wipeDatabase(Request $request)
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+            'confirm_phrase' => 'required|in:DELETE_DATABASE_DATA',
+        ]);
+
+        $this->backupRestoreService->wipeDatabaseData(auth()->id());
+        $this->auditService->log('DATABASE_WIPED', null, [], [
+            'reason' => $validated['reason'],
+            'actor_id' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Data database berhasil dikosongkan.');
     }
 
     public function importCenter(Request $request)

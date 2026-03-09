@@ -15,8 +15,10 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 
 class PortalController extends Controller
@@ -287,17 +289,71 @@ class PortalController extends Controller
         $user = $request->user();
         $perPage = $this->resolvePerPage($request, 12);
         $isAdminViewer = $user?->hasAnyRole(['admin', 'superadmin']);
-        $sessionsQuery = TutoringSession::query()
-            ->with(['student:id,name', 'tentor:id,name', 'subject:id,name']);
+        if ($isAdminViewer) {
+            $sessionGroups = TutoringSession::query()
+                ->with(['student:id,name', 'tentor:id,name', 'subject:id,name', 'invoice:id,invoice_number,notes'])
+                ->latest('scheduled_at')
+                ->get()
+                ->groupBy(function (TutoringSession $session) {
+                    return implode(':', [
+                        (int) $session->student_id,
+                        (int) $session->tentor_id,
+                        (int) ($session->invoice_id ?? 0),
+                    ]);
+                })
+                ->map(function ($group) {
+                    $first = $group->first();
+                    $invoice = $first?->invoice;
+                    $packageMeta = $invoice ? $this->resolvePackageMetaForInvoice($invoice) : ['name' => 'Paket belum diketahui'];
+                    $rows = $group
+                        ->sortBy('scheduled_at')
+                        ->values()
+                        ->map(function (TutoringSession $session) {
+                            return [
+                                'subject' => (string) ($session->subject?->name ?: $session->subject_id ?: '-'),
+                                'schedule' => optional($session->scheduled_at)->format('d M Y H:i') ?: '-',
+                                'status' => strtoupper((string) $session->status),
+                            ];
+                        });
 
-        if (!$isAdminViewer) {
-            $sessionsQuery->where('tentor_id', $user->id);
+                    return (object) [
+                        'student_name' => (string) ($first?->student?->name ?: $first?->student_id ?: '-'),
+                        'tentor_name' => (string) ($first?->tentor?->name ?: $first?->tentor_id ?: '-'),
+                        'package_label' => (string) ($packageMeta['name'] ?? 'Paket'),
+                        'session_count' => $rows->count(),
+                        'detail_rows' => $rows->all(),
+                    ];
+                })
+                ->values();
+
+            $currentPage = LengthAwarePaginator::resolveCurrentPage();
+            $sessions = new LengthAwarePaginator(
+                $sessionGroups->forPage($currentPage, $perPage)->values(),
+                $sessionGroups->count(),
+                $perPage,
+                $currentPage,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+        } else {
+            $studentColumns = ['id', 'name', 'address', 'city', 'province', 'postal_code', 'latitude', 'longitude'];
+            if (Schema::hasColumn('users', 'location_notes')) {
+                $studentColumns[] = 'location_notes';
+            }
+
+            $sessions = TutoringSession::query()
+                ->with([
+                    'student:' . implode(',', $studentColumns),
+                    'tentor:id,name',
+                    'subject:id,name',
+                ])
+                ->where('tentor_id', $user->id)
+                ->latest('scheduled_at')
+                ->paginate($perPage)
+                ->withQueryString();
         }
-
-        $sessions = $sessionsQuery
-            ->latest('scheduled_at')
-            ->paginate($perPage)
-            ->withQueryString();
 
         return view('portal.tutor-schedule', [
             'sessions' => $sessions,

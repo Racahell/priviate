@@ -192,12 +192,13 @@ class AuthController extends Controller
         $role = $user->getRoleNames()->first();
         $isHighRole = in_array($role, ['superadmin', 'owner', 'admin'], true);
         $anomalyFlag = $isHighRole && !empty($user->last_login_ip) && $user->last_login_ip !== $request->ip();
+        $location = $this->normalizeLocationPayload($request);
 
         $user->forceFill([
             'last_login_at' => now(),
             'last_login_ip' => $request->ip(),
-            'latitude' => $request->input('latitude'),
-            'longitude' => $request->input('longitude'),
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
         ])->save();
 
         $this->logLogin($user, 'LOGIN_SUCCESS', $request, $anomalyFlag);
@@ -387,13 +388,15 @@ class AuthController extends Controller
             return back()->withErrors(['captcha' => 'Verifikasi captcha gagal.'])->withInput();
         }
 
+        $isTentor = $validated['role'] === 'tentor';
+
         $user = User::create([
             'name' => $request->name,
             'email' => strtolower($request->email),
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'email_verified_at' => null,
-            'is_active' => false,
+            'is_active' => !$isTentor,
             'created_ip' => $request->ip(),
         ]);
 
@@ -401,7 +404,7 @@ class AuthController extends Controller
         if ($request->role === 'siswa' && empty($user->code)) {
             $user->forceFill(['code' => $this->generateStudentCode()])->save();
         }
-        if ($request->role === 'tentor') {
+        if ($isTentor) {
             $profile = TentorProfile::query()->create([
                 'user_id' => $user->id,
                 'bio' => $request->tentor_bio,
@@ -490,19 +493,20 @@ class AuthController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
         ]);
+        $location = $this->normalizeLocationPayload($request);
 
         $user = $request->user();
         if ($user) {
             $user->update([
-                'latitude' => $request->location_status === 'ALLOW' ? $request->latitude : null,
-                'longitude' => $request->location_status === 'ALLOW' ? $request->longitude : null,
+                'latitude' => $location['latitude'],
+                'longitude' => $location['longitude'],
             ]);
         }
 
         $this->auditService->log('LOCATION_PERMISSION', $user, [], [
-            'location_status' => $request->location_status,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            'location_status' => $location['location_status'],
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
         ], $this->requestContext($request, false));
 
         return response()->json(['ok' => true]);
@@ -545,6 +549,7 @@ class AuthController extends Controller
         if (!Schema::hasTable('login_events')) {
             return;
         }
+        $location = $this->normalizeLocationPayload($request);
 
         LoginEvent::create([
             'user_id' => $user?->id,
@@ -552,9 +557,9 @@ class AuthController extends Controller
             'status' => $status,
             'session_id' => $request->session()->getId(),
             'ip_address' => $request->ip(),
-            'latitude' => $request->input('latitude'),
-            'longitude' => $request->input('longitude'),
-            'location_status' => $request->input('location_status', 'DENIED'),
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
+            'location_status' => $location['location_status'],
             'device_fingerprint' => $request->header('X-Device-Fingerprint'),
             'browser' => $request->header('X-Browser'),
             'os' => $request->header('X-OS'),
@@ -574,14 +579,56 @@ class AuthController extends Controller
 
     private function requestContext(Request $request, bool $anomalyFlag): array
     {
+        $location = $this->normalizeLocationPayload($request);
+
         return [
-            'location_status' => $request->input('location_status', 'DENIED'),
-            'latitude' => $request->input('latitude'),
-            'longitude' => $request->input('longitude'),
+            'location_status' => $location['location_status'],
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
             'device_fingerprint' => $request->header('X-Device-Fingerprint'),
             'browser' => $request->header('X-Browser'),
             'os' => $request->header('X-OS'),
             'anomaly_flag' => $anomalyFlag,
+        ];
+    }
+
+    private function normalizeLocationPayload(Request $request): array
+    {
+        $status = strtoupper((string) $request->input('location_status', 'DENIED'));
+        if ($status !== 'ALLOW') {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        $latitude = round((float) $latitude, 8);
+        $longitude = round((float) $longitude, 8);
+
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            return [
+                'location_status' => 'DENIED',
+                'latitude' => null,
+                'longitude' => null,
+            ];
+        }
+
+        return [
+            'location_status' => 'ALLOW',
+            'latitude' => $latitude,
+            'longitude' => $longitude,
         ];
     }
 

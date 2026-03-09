@@ -11,7 +11,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Sesi</th>
                     <th>Role Sumber</th>
                     <th>Alasan</th>
@@ -20,9 +20,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($disputes as $d)
+                @forelse($disputes as $index => $d)
                     <tr>
-                        <td>{{ $d->id }}</td>
+                        <td>{{ ($disputes->currentPage() - 1) * $disputes->perPage() + $index + 1 }}</td>
                         <td>{{ $d->tutoring_session_id }}</td>
                         <td>{{ strtoupper($d->source_role ?? '-') }}</td>
                         <td>{{ $d->reason }}</td>
@@ -58,4 +58,3 @@
 
     @include('components.pagination-controls', ['paginator' => $disputes, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

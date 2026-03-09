@@ -36,6 +36,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'postal_code',
         'latitude',
         'longitude',
+        'location_notes',
         'created_by',
         'updated_by',
         'deleted_by',

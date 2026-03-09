@@ -121,6 +121,11 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         function() {
             document.getElementById('location_status').value = 'DENIED';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
         }
     );
 });

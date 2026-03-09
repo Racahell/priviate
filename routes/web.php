@@ -159,9 +159,12 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
 
         Route::get('/backup', [SystemManagementController::class, 'backupCenter'])->name('backup.center');
         Route::post('/backup', [SystemManagementController::class, 'createBackup'])->name('backup.create');
+        Route::get('/backup/{backupId}/download', [SystemManagementController::class, 'downloadBackup'])->name('backup.download');
         Route::post('/backup/{backupId}/preview', [SystemManagementController::class, 'previewPartialRestore'])->name('backup.preview');
         Route::post('/backup/{backupId}/partial-restore', [SystemManagementController::class, 'applyPartialRestore'])->name('backup.partial.restore');
         Route::post('/backup/{backupId}/disaster-restore', [SystemManagementController::class, 'disasterRestore'])->name('backup.disaster.restore');
+        Route::post('/backup/upload-restore', [SystemManagementController::class, 'uploadRestoreSql'])->name('backup.upload.restore');
+        Route::post('/backup/wipe-database', [SystemManagementController::class, 'wipeDatabase'])->name('backup.wipe');
 
         Route::get('/import', [SystemManagementController::class, 'importCenter'])->name('import.center');
         Route::post('/import/users', [SystemManagementController::class, 'importUsers'])->name('import.users');

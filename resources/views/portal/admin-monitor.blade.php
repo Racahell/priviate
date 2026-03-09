@@ -11,7 +11,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Siswa</th>
                     <th>Tentor</th>
                     <th>Mapel</th>
@@ -21,9 +21,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($todaySessions as $s)
+                @forelse($todaySessions as $index => $s)
                     <tr>
-                        <td>{{ $s->id }}</td>
+                        <td>{{ ($todaySessions->currentPage() - 1) * $todaySessions->perPage() + $index + 1 }}</td>
                         <td>{{ $s->student?->name ?: $s->student_id }}</td>
                         <td>{{ $s->tentor?->name ?: $s->tentor_id }}</td>
                         <td>{{ $s->subject?->name ?: $s->subject_id }}</td>
@@ -54,4 +54,3 @@
 
     @include('components.pagination-controls', ['paginator' => $todaySessions, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

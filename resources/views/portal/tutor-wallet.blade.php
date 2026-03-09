@@ -100,16 +100,16 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Nominal</th>
                     <th>Status</th>
                     <th>Dibayar</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($payouts as $payout)
+                @forelse($payouts as $index => $payout)
                     <tr>
-                        <td>{{ $payout->id }}</td>
+                        <td>{{ $index + 1 }}</td>
                         <td>Rp {{ number_format((float) $payout->net_amount, 0, ',', '.') }}</td>
                         <td><span class="badge {{ $payout->status === 'paid' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper($payout->status) }}</span></td>
                         <td>{{ optional($payout->paid_at)->format('d M Y H:i') ?: '-' }}</td>

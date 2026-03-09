@@ -10,7 +10,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Aksi</th>
                     <th>User ID</th>
                     <th>Role</th>
@@ -19,9 +19,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($logs as $log)
+                @forelse($logs as $index => $log)
                     <tr>
-                        <td>{{ $log->id }}</td>
+                        <td>{{ ($logs->currentPage() - 1) * $logs->perPage() + $index + 1 }}</td>
                         <td>{{ $log->action }}</td>
                         <td>{{ $log->user_id ?: '-' }}</td>
                         <td>{{ strtoupper($log->role ?? '-') }}</td>
@@ -38,4 +38,3 @@
 
     @include('components.pagination-controls', ['paginator' => $logs, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

@@ -56,6 +56,32 @@
             </div>
         </div>
 
+        @if($user->hasRole('siswa'))
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label>Titik Lokasi</label>
+                    <input type="text" id="profileCoordinatesPreview" class="form-control" value="{{ old('latitude', $user->latitude) && old('longitude', $user->longitude) ? old('latitude', $user->latitude) . ', ' . old('longitude', $user->longitude) : (($user->latitude && $user->longitude) ? $user->latitude . ', ' . $user->longitude : '') }}" placeholder="Belum ada titik lokasi" readonly>
+                    <input type="hidden" name="latitude" id="profileLatitude" value="{{ old('latitude', $user->latitude) }}">
+                    <input type="hidden" name="longitude" id="profileLongitude" value="{{ old('longitude', $user->longitude) }}">
+                    <small class="text-muted">Dipakai untuk membantu tentor menemukan lokasi saat sesi offline.</small>
+                </div>
+                <div class="form-group">
+                    <label>Aksi Lokasi</label>
+                    <button type="button" class="btn btn-outline" id="captureProfileLocationBtn">Gunakan Lokasi Saat Ini</button>
+                    <a href="{{ ($user->latitude && $user->longitude) ? ('https://maps.google.com/?q=' . $user->latitude . ',' . $user->longitude) : '#' }}" target="_blank" rel="noopener" class="btn btn-outline" id="profileMapsLink" style="{{ ($user->latitude && $user->longitude) ? '' : 'display:none;' }}">Lihat di Google Maps</a>
+                </div>
+            </div>
+            @if($supportsLocationNotes ?? false)
+            <div class="grid grid-1">
+                <div class="form-group">
+                    <label>Catatan Lokasi</label>
+                    <textarea name="location_notes" class="form-control" rows="3" placeholder="Contoh: Rumah warna putih dekat masjid, pagar hitam, masuk gang sebelah minimarket.">{{ old('location_notes', $user->location_notes) }}</textarea>
+                    <small class="text-muted">Catatan ini akan ditampilkan ke tentor hanya untuk sesi offline yang sudah ditugaskan.</small>
+                </div>
+            </div>
+            @endif
+        @endif
+
         <div class="grid grid-2">
             <div class="form-group">
                 <label>Avatar</label>
@@ -80,3 +106,54 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+@if($user->hasRole('siswa'))
+<script>
+(function () {
+    var captureBtn = document.getElementById('captureProfileLocationBtn');
+    var latitudeInput = document.getElementById('profileLatitude');
+    var longitudeInput = document.getElementById('profileLongitude');
+    var previewInput = document.getElementById('profileCoordinatesPreview');
+    var mapsLink = document.getElementById('profileMapsLink');
+    if (!captureBtn || !latitudeInput || !longitudeInput || !previewInput) return;
+
+    captureBtn.addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            alert('Browser tidak mendukung geolocation.');
+            return;
+        }
+
+        captureBtn.disabled = true;
+        captureBtn.textContent = 'Mengambil lokasi...';
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                var latitude = Number(position.coords.latitude).toFixed(8);
+                var longitude = Number(position.coords.longitude).toFixed(8);
+                latitudeInput.value = latitude;
+                longitudeInput.value = longitude;
+                previewInput.value = latitude + ', ' + longitude;
+                if (mapsLink) {
+                    mapsLink.href = 'https://maps.google.com/?q=' + latitude + ',' + longitude;
+                    mapsLink.style.display = '';
+                }
+                captureBtn.disabled = false;
+                captureBtn.textContent = 'Gunakan Lokasi Saat Ini';
+            },
+            function () {
+                captureBtn.disabled = false;
+                captureBtn.textContent = 'Gunakan Lokasi Saat Ini';
+                alert('Lokasi gagal diambil. Pastikan izin lokasi di browser aktif.');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    });
+})();
+</script>
+@endif
+@endpush

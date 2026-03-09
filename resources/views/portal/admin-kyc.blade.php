@@ -11,7 +11,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>No</th>
                     <th>Nama</th>
                     <th>Email</th>
                     <th>Phone</th>
@@ -19,9 +19,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($tentors as $t)
+                @forelse($tentors as $index => $t)
                     <tr>
-                        <td>{{ $t->id }}</td>
+                        <td>{{ ($tentors->currentPage() - 1) * $tentors->perPage() + $index + 1 }}</td>
                         <td>{{ $t->name }}</td>
                         <td>{{ $t->email }}</td>
                         <td>{{ $t->phone ?: '-' }}</td>
@@ -37,4 +37,3 @@
 
     @include('components.pagination-controls', ['paginator' => $tentors, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

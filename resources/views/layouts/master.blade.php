@@ -38,6 +38,16 @@
       } elseif (file_exists(public_path('img/priviate-logo.svg'))) {
           $brandLogo = 'img/priviate-logo.svg';
       }
+      $greetingHour = now()->hour;
+      if ($greetingHour >= 5 && $greetingHour < 12) {
+          $timeGreeting = 'Good Morning';
+      } elseif ($greetingHour >= 12 && $greetingHour < 15) {
+          $timeGreeting = 'Good Afternoon';
+      } elseif ($greetingHour >= 15 && $greetingHour < 18) {
+          $timeGreeting = 'Good Evening';
+      } else {
+          $timeGreeting = 'Good Night';
+      }
   @endphp
   <body class="{{ $roleClass }} {{ $isGuestLayout ? 'guest-layout' : 'auth-layout' }}">
   <!-- container section start -->
@@ -46,7 +56,7 @@
       <header class="header dark-bg">
             @auth
                 <div class="auth-header-copy">
-                    <h2>Good Morning, {{ explode(' ', Auth::user()->name)[0] }}</h2>
+                    <h2>{{ $timeGreeting }}, {{ explode(' ', Auth::user()->name)[0] }}</h2>
                     <p>Welcome to your PrivTuition dashboard</p>
                 </div>
             @endauth
@@ -469,6 +479,11 @@
               },
               body: JSON.stringify({ location_status: "DENIED" })
             });
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
           }
         );
       })();
@@ -478,4 +493,3 @@
     @stack('scripts')
   </body>
 </html>
-
