@@ -240,7 +240,7 @@
                                   'kritik' => ['admin.disputes', 'parent.disputes'],
                                   'monitor' => ['admin.monitor'],
                                   'paket' => ['admin.modules.packages', 'student.packages', 'superadmin.modules.packages'],
-                                  'sesi' => ['admin.modules.sessions', 'superadmin.modules.sessions', 'admin.sessions'],
+                                  'sesi' => ['admin.sessions', 'admin.modules.sessions', 'superadmin.modules.sessions'],
                                   'mapel' => ['admin.modules.subjects', 'superadmin.modules.subjects'],
                                   'user' => ['admin.modules.users', 'superadmin.modules.users'],
                                   'invoices' => ['admin.invoices', 'student.invoices'],

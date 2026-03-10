@@ -46,10 +46,8 @@
                         <th><input type="checkbox" id="session-check-all"></th>
                     @endif
                     <th>No</th>
-                    <th>Mulai</th>
-                    <th>Selesai</th>
-                    <th>Status</th>
-                    <th>Dipakai Booking</th>
+                    <th>Sesi</th>
+                    <th>Jam</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -59,11 +57,10 @@
                         @if(($tab ?? 'active') === 'active')
                             <td><input type="checkbox" class="session-row-check" value="{{ $slot->id }}"></td>
                         @endif
-                        <td>{{ ($slots->currentPage() - 1) * $slots->perPage() + $index + 1 }}</td>
-                        <td>{{ optional($slot->start_at)->format('H:i') }}</td>
-                        <td>{{ optional($slot->end_at)->format('H:i') }}</td>
-                        <td><span class="badge {{ strtoupper((string) $slot->status) === 'OPEN' ? 'badge-success' : 'badge-warning' }}">{{ strtoupper((string) $slot->status) }}</span></td>
-                        <td>{{ (int) ($slot->tutoring_sessions_count ?? 0) }}</td>
+                        @php($sessionNumber = ($slots->currentPage() - 1) * $slots->perPage() + $index + 1)
+                        <td>{{ $sessionNumber }}</td>
+                        <td>{{ 'Sesi ' . $sessionNumber }}</td>
+                        <td>{{ optional($slot->start_at)->format('H:i') }} - {{ optional($slot->end_at)->format('H:i') }}</td>
                         <td>
                             @if(($tab ?? 'active') === 'active')
                                 <div class="split-actions">
@@ -86,7 +83,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ ($tab ?? 'active') === 'active' ? 7 : 6 }}">Belum ada master slot.</td></tr>
+                    <tr><td colspan="{{ ($tab ?? 'active') === 'active' ? 5 : 4 }}">Belum ada master slot.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -97,13 +94,13 @@
 <div class="modal-overlay is-open">
     <div class="modal-card">
         <div class="split-header">
-            <h3 class="card-title">Detail Slot #{{ $detail->id }}</h3>
+            <h3 class="card-title">Detail Sesi</h3>
             <a href="{{ route('admin.sessions') }}" class="btn btn-outline btn-xs">Tutup</a>
         </div>
         <form method="POST" action="{{ route('admin.sessions.update', $detail->id) }}" class="section modal-form">
             @csrf
             @method('PUT')
-            <div class="grid grid-3">
+            <div class="grid grid-2">
                 <div class="form-group">
                     <label>Mulai</label>
                     <input type="time" name="start_at" class="form-control" value="{{ old('start_at', optional($detail->start_at)->format('H:i')) }}" required>
@@ -111,14 +108,6 @@
                 <div class="form-group">
                     <label>Selesai</label>
                     <input type="time" name="end_at" class="form-control" value="{{ old('end_at', optional($detail->end_at)->format('H:i')) }}" required>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    @php($st = old('status', $detail->status))
-                    <select name="status" class="form-control" required>
-                        <option value="OPEN" {{ $st === 'OPEN' ? 'selected' : '' }}>OPEN</option>
-                        <option value="CLOSED" {{ $st === 'CLOSED' ? 'selected' : '' }}>CLOSED</option>
-                    </select>
                 </div>
             </div>
             <p class="card-meta">Slot yang sudah dipakai booking tidak boleh diubah atau dihapus.</p>
@@ -196,4 +185,3 @@
     })();
 </script>
 @endpush
-

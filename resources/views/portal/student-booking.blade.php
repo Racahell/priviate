@@ -169,7 +169,7 @@
             <select name="slot_ids[]" class="form-control booking-slot" required>
                 <option value="">Pilih jam sesi</option>
                 @foreach($openSlots as $slot)
-                    <option value="{{ $slot->id }}">{{ optional($slot->start_at)->format('H:i') }} - {{ optional($slot->end_at)->format('H:i') }}</option>
+                    <option value="{{ $slot->id }}">Sesi {{ $loop->iteration }} | {{ optional($slot->start_at)->format('H:i') }} - {{ optional($slot->end_at)->format('H:i') }}</option>
                 @endforeach
             </select>
         </div>
@@ -397,4 +397,3 @@
 })();
 </script>
 @endpush
-

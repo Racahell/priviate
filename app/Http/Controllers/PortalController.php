@@ -608,7 +608,7 @@ class PortalController extends Controller
         $detailId = $request->query('detail');
         $slotsQuery = ScheduleSlot::query()
             ->withCount('tutoringSessions')
-            ->latest('start_at');
+            ->orderBy('start_at');
         if ($tab === 'deleted' && $isSuperadmin) {
             $slotsQuery->onlyTrashed();
         }
@@ -644,6 +644,12 @@ class PortalController extends Controller
             $endAt->addDay();
         }
 
+        if ($this->hasScheduleSlotConflict($startAt, $endAt)) {
+            return back()
+                ->withErrors(['start_at' => 'Jam sesi bentrok dengan sesi lain. Gunakan jam yang berbeda.'])
+                ->withInput();
+        }
+
         ScheduleSlot::query()->create([
             'start_at' => $startAt,
             'end_at' => $endAt,
@@ -659,7 +665,7 @@ class PortalController extends Controller
         $validated = $request->validate([
             'start_at' => 'required|date_format:H:i',
             'end_at' => 'required|date_format:H:i',
-            'status' => 'required|in:OPEN,CLOSED',
+            'status' => 'nullable|in:OPEN,CLOSED',
         ]);
 
         $slot = ScheduleSlot::query()->withTrashed()->findOrFail($id);
@@ -675,10 +681,16 @@ class PortalController extends Controller
             $endAt->addDay();
         }
 
+        if ($this->hasScheduleSlotConflict($startAt, $endAt, $slot->id)) {
+            return redirect()->route('admin.sessions')->withErrors([
+                'start_at' => 'Jam sesi bentrok dengan sesi lain. Gunakan jam yang berbeda.',
+            ])->withInput();
+        }
+
         $slot->update([
             'start_at' => $startAt,
             'end_at' => $endAt,
-            'status' => $validated['status'],
+            'status' => $validated['status'] ?? ($slot->status ?: 'OPEN'),
         ]);
 
         return redirect()->route('admin.sessions')->with('status', 'Slot sesi berhasil diperbarui.');
@@ -807,6 +819,18 @@ class PortalController extends Controller
             'action' => $action,
             'role' => $role,
         ]);
+    }
+
+    private function hasScheduleSlotConflict(Carbon $startAt, Carbon $endAt, ?int $ignoreId = null): bool
+    {
+        return ScheduleSlot::query()
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->where(function ($query) use ($startAt, $endAt) {
+                $query
+                    ->where('start_at', '<', $endAt)
+                    ->where('end_at', '>', $startAt);
+            })
+            ->exists();
     }
 
     private function resolvePerPage(Request $request, int $default = 15): int

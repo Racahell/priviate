@@ -28,7 +28,7 @@
 
                 <div class="form-group @error('email') has-error @enderror">
                     <label>Email Address</label>
-                    <input type="email" name="email" class="form-control" value="{{ old('email') }}" required autofocus>
+                    <input type="email" name="email" class="form-control" value="{{ old('email', session('unverified_email')) }}" required autofocus>
                     @error('email') <span class="help-block">{{ $message }}</span> @enderror
                 </div>
 
@@ -68,6 +68,16 @@
                     <p>Lupa password? <a href="{{ route('password.forgot') }}">Reset via WA/Email</a></p>
                 </div>
             </form>
+
+            @if(session('show_resend_verification'))
+                <hr>
+                <form action="{{ route('register.resend-verification') }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="email" value="{{ old('email', session('unverified_email')) }}">
+                    <p class="text-center">Belum menerima email verifikasi?</p>
+                    <button type="submit" class="btn btn-default btn-block">Kirim Ulang Email Verifikasi</button>
+                </form>
+            @endif
         </div>
     </div>
 </div>

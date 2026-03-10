@@ -197,17 +197,9 @@
                     </div>
                 @elseif($module === 'sessions')
                     <p class="card-meta">Input jam saja. Setiap tambah sesi akan membuat satu slot sesi.</p>
-                    <div class="grid grid-3">
+                    <div class="grid grid-2">
                         <div class="form-group"><input type="time" class="form-control" name="start_at" value="{{ old('start_at') }}" required></div>
                         <div class="form-group"><input type="time" class="form-control" name="end_at" value="{{ old('end_at') }}" required></div>
-                        <div class="form-group">
-                            <select class="form-control" name="status">
-                                <option value="OPEN" {{ old('status') === 'OPEN' ? 'selected' : '' }}>OPEN</option>
-                                <option value="LOCKED" {{ old('status') === 'LOCKED' ? 'selected' : '' }}>LOCKED</option>
-                                <option value="BOOKED" {{ old('status') === 'BOOKED' ? 'selected' : '' }}>BOOKED</option>
-                                <option value="CLOSED" {{ old('status') === 'CLOSED' ? 'selected' : '' }}>CLOSED</option>
-                            </select>
-                        </div>
                     </div>
                 @endif
 
@@ -230,7 +222,7 @@
             @if($tab === 'active')
                 @if($module === 'sessions' && $detailMode === 'show')
                     <div class="section">
-                        <div class="grid grid-3">
+                        <div class="grid grid-2">
                             <div class="form-group">
                                 <label>Jam Mulai</label>
                                 <input type="text" class="form-control" value="{{ optional($detail->start_at)->format('H:i') }}" readonly>
@@ -238,10 +230,6 @@
                             <div class="form-group">
                                 <label>Jam Selesai</label>
                                 <input type="text" class="form-control" value="{{ optional($detail->end_at)->format('H:i') }}" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Status</label>
-                                <input type="text" class="form-control" value="{{ $detail->status }}" readonly>
                             </div>
                         </div>
                     </div>
@@ -683,4 +671,3 @@
     })();
 </script>
 @endpush
-

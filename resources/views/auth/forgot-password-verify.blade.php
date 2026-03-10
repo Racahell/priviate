@@ -7,7 +7,13 @@
     <div class="card auth-card">
         <div class="auth-card-head">
             <h1 class="page-title text-center">Masukkan OTP dan Password Baru</h1>
-            <p class="page-subtitle text-center">Gunakan OTP yang barusan kamu terima.</p>
+            <p class="page-subtitle text-center">
+                Gunakan OTP yang barusan kamu terima
+                @if(!empty($destinationLabel))
+                    di {{ strtoupper($channel ?? 'EMAIL') === 'EMAIL' ? 'email' : 'nomor' }} {{ $destinationLabel }}
+                @endif
+                .
+            </p>
         </div>
         <div class="auth-card-body">
             <form action="{{ route('password.forgot.reset', $requestId) }}" method="POST">
@@ -27,6 +33,14 @@
                     <input type="password" name="password_confirmation" class="form-control" required>
                 </div>
                 <button class="btn btn-success btn-block" type="submit">Reset Password</button>
+            </form>
+            <hr>
+            <form action="{{ route('password.forgot.resend', $requestId) }}" method="POST">
+                @csrf
+                <p class="text-center">Belum menerima OTP?</p>
+                <button class="btn btn-default btn-block" type="submit">
+                    Kirim Ulang OTP{{ strtoupper($channel ?? 'EMAIL') === 'EMAIL' ? ' via Email' : ' via WhatsApp' }}
+                </button>
             </form>
         </div>
     </div>

@@ -54,7 +54,7 @@ class DashboardController extends Controller
             'admin' => [
                 ['label' => 'Setting Web', 'route' => 'admin.settings'],
                 ['label' => 'Laporan Keuangan', 'route' => 'admin.reports'],
-                ['label' => 'Sesi', 'route' => 'admin.modules.sessions'],
+                ['label' => 'Sesi', 'route' => 'admin.sessions'],
                 ['label' => 'Kritik', 'route' => 'admin.disputes'],
                 ['label' => 'Monitor', 'route' => 'admin.monitor'],
             ],

@@ -243,7 +243,7 @@ class ModuleDataController extends Controller
             'sessions' => [
                 'model' => ScheduleSlot::class,
                 'title' => 'Sesi',
-                'columns' => ['id', 'start_at', 'end_at', 'status', 'student_id', 'tentor_id'],
+                'columns' => ['id', 'start_at', 'end_at'],
             ],
         ];
 
@@ -275,7 +275,7 @@ class ModuleDataController extends Controller
                 'role_options' => $roleOptions,
             ],
             'sessions' => [
-                'fields' => ['start_at', 'end_at', 'status'],
+                'fields' => ['start_at', 'end_at'],
             ],
             default => ['fields' => []],
         };
@@ -697,7 +697,7 @@ class ModuleDataController extends Controller
         }
         $message .= "\n\nTerima kasih.";
 
-        SendRawEmailJob::dispatch($user->email, 'Update Status Verifikasi Tentor', $message);
+        SendRawEmailJob::dispatchSync($user->email, 'Update Status Verifikasi Tentor', $message);
     }
 
     private function saveSession(Request $request, ?int $id)
@@ -712,6 +712,12 @@ class ModuleDataController extends Controller
         if (!$id) {
             $baseDate = now()->startOfDay();
             [$startAt, $endAt] = $this->buildSessionDateTime($baseDate, $validated['start_at'], $validated['end_at']);
+
+            if ($this->hasSessionTimeConflict($startAt, $endAt)) {
+                return $this->redirectToModuleIndex($request, 'sessions')
+                    ->withErrors(['start_at' => 'Jam sesi bentrok dengan sesi lain. Gunakan jam yang berbeda.'])
+                    ->withInput();
+            }
 
             ScheduleSlot::query()->create([
                 'start_at' => $startAt,
@@ -731,6 +737,12 @@ class ModuleDataController extends Controller
         }
         $slotDate = ($slot->start_at ? Carbon::parse($slot->start_at) : now())->startOfDay();
         [$startAt, $endAt] = $this->buildSessionDateTime($slotDate, $validated['start_at'], $validated['end_at']);
+
+        if ($this->hasSessionTimeConflict($startAt, $endAt, $slot->id)) {
+            return $this->redirectToModuleIndex($request, 'sessions')
+                ->withErrors(['start_at' => 'Jam sesi bentrok dengan sesi lain. Gunakan jam yang berbeda.'])
+                ->withInput();
+        }
 
         $slot->fill([
             'start_at' => $startAt,
@@ -758,6 +770,18 @@ class ModuleDataController extends Controller
         }
 
         return [$startAt, $endAt];
+    }
+
+    private function hasSessionTimeConflict(Carbon $startAt, Carbon $endAt, ?int $ignoreId = null): bool
+    {
+        return ScheduleSlot::query()
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->where(function ($query) use ($startAt, $endAt) {
+                $query
+                    ->where('start_at', '<', $endAt)
+                    ->where('end_at', '>', $startAt);
+            })
+            ->exists();
     }
 
     private function applySearch($query, string $module, string $q): void

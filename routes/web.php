@@ -23,6 +23,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/register/pre-verify', [AuthController::class, 'showPreVerifyForm'])->name('register.preverify');
     Route::post('/register/pre-verify', [AuthController::class, 'sendPreVerification'])->name('register.preverify.send');
     Route::get('/register/activate/{token}', [AuthController::class, 'activatePreVerification'])->name('register.activate');
+    Route::post('/register/resend-verification', [AuthController::class, 'resendVerificationEmail'])->name('register.resend-verification');
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->name('register.post');
 
@@ -36,6 +37,7 @@ Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm']
 Route::post('/forgot-password', [AuthController::class, 'sendForgotPasswordOtp'])->name('password.forgot.send');
 Route::get('/forgot-password/{requestId}', [AuthController::class, 'showForgotPasswordVerifyForm'])->name('password.forgot.verify');
 Route::post('/forgot-password/{requestId}', [AuthController::class, 'resetForgotPassword'])->name('password.forgot.reset');
+Route::post('/forgot-password/{requestId}/resend', [AuthController::class, 'resendForgotPasswordOtp'])->name('password.forgot.resend');
 
 Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

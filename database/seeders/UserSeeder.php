@@ -16,9 +16,9 @@ class UserSeeder extends Seeder
     {
         // 1. Superadmin
         $superadmin = User::updateOrCreate(
-            ['email' => 'a@g'],
+            ['email' => 'superadmin@gmail.com'],
             [
-                'name' => 'a',
+                'name' => 'superadmin',
                 'password' => 'a',
                 'email_verified_at' => now(),
                 'is_active' => true,
@@ -28,9 +28,9 @@ class UserSeeder extends Seeder
 
         // 2. Admin
         $admin = User::updateOrCreate(
-            ['email' => 'b@g'],
+            ['email' => 'admin@gmail.com'],
             [
-                'name' => 'b',
+                'name' => 'admin',
                 'password' => 'b',
                 'email_verified_at' => now(),
                 'is_active' => true,
@@ -40,9 +40,9 @@ class UserSeeder extends Seeder
 
         // 3. Owner
         $owner = User::updateOrCreate(
-            ['email' => 'c@g'],
+            ['email' => 'budi.santoso@gmail.com'],
             [
-                'name' => 'c',
+                'name' => 'Budi Santoso',
                 'password' => 'c',
                 'email_verified_at' => now(),
                 'is_active' => true,
@@ -52,9 +52,9 @@ class UserSeeder extends Seeder
 
         // 4. Tentor
         $tentor = User::updateOrCreate(
-            ['email' => 'e@g'],
+            ['email' => 'rina.maharani@gmail.com'],
             [
-                'name' => 'e',
+                'name' => 'Rina Maharani',
                 'password' => 'e',
                 'email_verified_at' => now(),
                 'is_active' => true,
@@ -74,9 +74,9 @@ class UserSeeder extends Seeder
 
         // 5. Siswa
         $siswa = User::updateOrCreate(
-            ['email' => 'f@g'],
+            ['email' => 'alya.putri@gmail.com'],
             [
-                'name' => 'f',
+                'name' => 'Alya Putri',
                 'password' => 'f',
                 'email_verified_at' => now(),
                 'is_active' => true,
@@ -86,9 +86,9 @@ class UserSeeder extends Seeder
 
         // 6. Orang Tua
         $orangTua = User::updateOrCreate(
-            ['email' => 'g@g'],
+            ['email' => 'dewi.lestari@gmail.com'],
             [
-                'name' => 'g',
+                'name' => 'Dewi Lestari',
                 'password' => 'g',
                 'email_verified_at' => now(),
                 'is_active' => true,

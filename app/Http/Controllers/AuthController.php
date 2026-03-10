@@ -65,7 +65,7 @@ class AuthController extends Controller
 
         $activationLink = route('register.activate', ['token' => $token, 'email' => strtolower($request->email)]);
 
-        SendRawEmailJob::dispatch(
+        SendRawEmailJob::dispatchSync(
             strtolower($request->email),
             'Aktivasi Registrasi Akun',
             "Klik link aktivasi berikut untuk lanjut registrasi:\n{$activationLink}\n\nLink berlaku 30 menit."
@@ -176,7 +176,10 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
             return back()->withErrors([
                 'email' => 'Email belum diverifikasi. Cek inbox untuk link verifikasi.',
-            ])->withInput();
+            ])->withInput()->with([
+                'show_resend_verification' => true,
+                'unverified_email' => $user->email,
+            ]);
         }
         if (!(bool) $user->is_active) {
             Auth::logout();
@@ -286,26 +289,17 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Email tidak ditemukan.']);
         }
 
-        $otp = (string) random_int(100000, 999999);
         $record = PasswordResetRequest::create([
             'user_id' => $user->id,
             'email' => $user->email,
             'phone' => $user->phone,
             'channel' => $request->channel,
-            'otp_code' => $otp,
+            'otp_code' => (string) random_int(100000, 999999),
             'expires_at' => now()->addMinutes(15),
             'request_ip' => $request->ip(),
         ]);
 
-        if ($request->channel === 'EMAIL') {
-            SendRawEmailJob::dispatch(
-                $user->email,
-                'Kode Reset Password',
-                "Kode reset password Anda: {$otp}. Berlaku 15 menit."
-            );
-        } else {
-            $this->sendWhatsappOtp($user->phone, $otp);
-        }
+        $this->dispatchPasswordResetOtp($record, $user);
 
         $this->auditService->log('PASSWORD_RESET_REQUESTED', $user, [], [
             'channel' => $request->channel,
@@ -317,7 +311,103 @@ class AuthController extends Controller
 
     public function showForgotPasswordVerifyForm(int $requestId)
     {
-        return view('auth.forgot-password-verify', compact('requestId'));
+        $resetRequest = PasswordResetRequest::where('id', $requestId)
+            ->whereNull('used_at')
+            ->where('expires_at', '>=', now())
+            ->first();
+
+        if (!$resetRequest) {
+            return redirect()->route('password.forgot')->withErrors([
+                'email' => 'Permintaan reset password tidak ditemukan atau sudah kedaluwarsa.',
+            ]);
+        }
+
+        $channel = strtoupper((string) $resetRequest->channel);
+        $destinationLabel = $channel === 'EMAIL'
+            ? $this->maskEmail((string) $resetRequest->email)
+            : $this->maskPhone((string) $resetRequest->phone);
+
+        return view('auth.forgot-password-verify', compact('requestId', 'channel', 'destinationLabel'));
+    }
+
+    public function resendVerificationEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $email = strtolower((string) $request->email);
+        $throttleKey = 'resend-verification-email:' . $email . '|' . $request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return back()->withErrors([
+                'email' => "Terlalu banyak permintaan kirim ulang email. Coba lagi dalam {$seconds} detik.",
+            ])->withInput();
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            return back()->withErrors([
+                'email' => 'Email tidak ditemukan.',
+            ])->withInput();
+        }
+
+        if ($user->email_verified_at) {
+            return back()->with('status', 'Email ini sudah terverifikasi. Silakan login.');
+        }
+
+        RateLimiter::hit($throttleKey, 300);
+        $this->sendRegistrationVerificationEmail($user, $request->ip());
+        $this->auditService->log('EMAIL_VERIFICATION_RESENT', $user, [], [
+            'email' => $email,
+        ]);
+
+        return back()->with('status', 'Link verifikasi berhasil dikirim ulang.');
+    }
+
+    public function resendForgotPasswordOtp(Request $request, int $requestId)
+    {
+        $throttleKey = 'resend-password-reset-otp:' . $requestId . '|' . $request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return back()->withErrors([
+                'otp_code' => "Terlalu banyak permintaan kirim ulang OTP. Coba lagi dalam {$seconds} detik.",
+            ]);
+        }
+
+        $resetRequest = PasswordResetRequest::where('id', $requestId)
+            ->whereNull('used_at')
+            ->where('expires_at', '>=', now())
+            ->first();
+
+        if (!$resetRequest) {
+            return redirect()->route('password.forgot')->withErrors([
+                'email' => 'Permintaan reset password tidak ditemukan atau sudah kedaluwarsa.',
+            ]);
+        }
+
+        $user = User::find($resetRequest->user_id);
+        if (!$user) {
+            return redirect()->route('password.forgot')->withErrors([
+                'email' => 'User untuk permintaan reset password ini tidak ditemukan.',
+            ]);
+        }
+
+        $resetRequest->forceFill([
+            'otp_code' => (string) random_int(100000, 999999),
+            'expires_at' => now()->addMinutes(15),
+            'request_ip' => $request->ip(),
+        ])->save();
+
+        RateLimiter::hit($throttleKey, 300);
+        $this->dispatchPasswordResetOtp($resetRequest, $user);
+        $this->auditService->log('PASSWORD_RESET_OTP_RESENT', $user, [], [
+            'channel' => $resetRequest->channel,
+        ]);
+
+        $channelLabel = strtoupper((string) $resetRequest->channel) === 'EMAIL' ? 'email' : 'WhatsApp';
+
+        return back()->with('status', "Kode OTP berhasil dikirim ulang via {$channelLabel}.");
     }
 
     public function resetForgotPassword(Request $request, int $requestId)
@@ -454,20 +544,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = hash('sha256', Str::uuid()->toString() . '|' . $user->email . '|' . now()->timestamp);
-        RegistrationEmailVerification::create([
-            'email' => $user->email,
-            'token' => $token,
-            'expires_at' => now()->addMinutes(30),
-            'sent_ip' => $request->ip(),
-        ]);
-
-        $verificationLink = route('register.activate', ['token' => $token, 'email' => $user->email]);
-        SendRawEmailJob::dispatch(
-            $user->email,
-            'Verifikasi Email Akun PrivTuition',
-            "Halo {$user->name},\n\nKlik link berikut untuk verifikasi email akun Anda:\n{$verificationLink}\n\nLink berlaku 30 menit."
-        );
+        $this->sendRegistrationVerificationEmail($user, $request->ip());
 
         $this->auditService->log('REGISTER_PENDING_EMAIL_VERIFICATION', $user, [], $user->toArray(), $this->requestContext($request, false));
 
@@ -519,7 +596,7 @@ class AuthController extends Controller
         $request->session()->put('pending_2fa_user_id', $user->id);
 
         Auth::logout();
-        SendRawEmailJob::dispatch(
+        SendRawEmailJob::dispatchSync(
             $user->email,
             'OTP Login 2FA',
             "Kode OTP login Anda: {$code}. Berlaku 5 menit."
@@ -575,6 +652,62 @@ class AuthController extends Controller
         }
 
         SendWhatsappMessageJob::dispatch($phone, "Kode reset password Anda: {$otp}. Berlaku 15 menit.");
+    }
+
+    private function sendRegistrationVerificationEmail(User $user, ?string $ipAddress = null): void
+    {
+        $token = hash('sha256', Str::uuid()->toString() . '|' . $user->email . '|' . now()->timestamp);
+        RegistrationEmailVerification::create([
+            'email' => $user->email,
+            'token' => $token,
+            'expires_at' => now()->addMinutes(30),
+            'sent_ip' => $ipAddress,
+        ]);
+
+        $verificationLink = route('register.activate', ['token' => $token, 'email' => $user->email]);
+        SendRawEmailJob::dispatchSync(
+            $user->email,
+            'Verifikasi Email Akun PrivTuition',
+            "Halo {$user->name},\n\nKlik link berikut untuk verifikasi email akun Anda:\n{$verificationLink}\n\nLink berlaku 30 menit."
+        );
+    }
+
+    private function dispatchPasswordResetOtp(PasswordResetRequest $record, User $user): void
+    {
+        if (strtoupper((string) $record->channel) === 'EMAIL') {
+            SendRawEmailJob::dispatchSync(
+                $user->email,
+                'Kode Reset Password',
+                "Kode reset password Anda: {$record->otp_code}. Berlaku 15 menit."
+            );
+
+            return;
+        }
+
+        $this->sendWhatsappOtp($user->phone, (string) $record->otp_code);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        if (!str_contains($email, '@')) {
+            return $email;
+        }
+
+        [$localPart, $domain] = explode('@', $email, 2);
+        $visibleLocal = substr($localPart, 0, min(2, strlen($localPart)));
+        $maskedLocal = $visibleLocal . str_repeat('*', max(strlen($localPart) - strlen($visibleLocal), 0));
+
+        return $maskedLocal . '@' . $domain;
+    }
+
+    private function maskPhone(string $phone): string
+    {
+        $length = strlen($phone);
+        if ($length <= 4) {
+            return str_repeat('*', $length);
+        }
+
+        return substr($phone, 0, 3) . str_repeat('*', max($length - 5, 0)) . substr($phone, -2);
     }
 
     private function requestContext(Request $request, bool $anomalyFlag): array

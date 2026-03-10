@@ -67,15 +67,15 @@ class ComprehensiveDummySeeder extends Seeder
 
             $domain = $i === 1 ? 'localhost' : "tenant{$i}.dummy.test";
             $this->upsert('tenants', ['domain' => $domain], [
-                'name' => "Dummy Tenant {$i}",
+                'name' => $this->tenantName($i),
                 'logo_url' => "https://example.test/logo-{$i}.png",
                 'primary_color' => sprintf('#%06X', 0x111111 * $i),
                 'footer_content' => "Footer tenant {$i}",
                 'is_active' => true,
             ]);
 
-            $this->upsert('web_settings', ['contact_email' => "setting{$i}@dummy.test"], [
-                'site_name' => "Dummy Web {$i}",
+            $this->upsert('web_settings', ['contact_email' => "info{$i}@gmail.com"], [
+                'site_name' => $this->siteName($i),
                 'logo_url' => "https://example.test/web-logo-{$i}.png",
                 'address' => "Jl. Dummy Web {$i}, Jakarta",
                 'manager_name' => "Manager {$i}",
@@ -87,8 +87,8 @@ class ComprehensiveDummySeeder extends Seeder
 
     private function seedUsers(): array
     {
-        $superadmin = $this->upsertUser('superadmin@dummy.test', [
-            'name' => 'Dummy Superadmin',
+        $superadmin = $this->upsertUser('superadmin@gmail.com', [
+            'name' => 'superadmin',
             'phone' => '081111111111',
             'address' => 'Jl. Superadmin Dummy No. 1',
             'city' => 'Jakarta',
@@ -97,8 +97,8 @@ class ComprehensiveDummySeeder extends Seeder
             'is_active' => true,
         ]);
 
-        $admin = $this->upsertUser('admin@dummy.test', [
-            'name' => 'Dummy Admin',
+        $admin = $this->upsertUser('admin@gmail.com', [
+            'name' => 'admin',
             'phone' => '082222222222',
             'address' => 'Jl. Admin Dummy No. 2',
             'city' => 'Jakarta',
@@ -107,8 +107,8 @@ class ComprehensiveDummySeeder extends Seeder
             'is_active' => true,
         ]);
 
-        $owner = $this->upsertUser('owner@dummy.test', [
-            'name' => 'Dummy Owner',
+        $owner = $this->upsertUser('budi.santoso@gmail.com', [
+            'name' => 'Budi Santoso',
             'phone' => '083333333333',
             'address' => 'Jl. Owner Dummy No. 3',
             'city' => 'Bandung',
@@ -121,8 +121,30 @@ class ComprehensiveDummySeeder extends Seeder
         $students = [];
         $parents = [];
         foreach (range(1, 10) as $i) {
-            $parents[] = $this->upsertUser("parent{$i}@dummy.test", [
-                'name' => "Dummy Parent {$i}",
+            $parents[] = $this->upsertUser(match ($i) {
+                1 => 'siti.rahma@gmail.com',
+                2 => 'agus.salim@gmail.com',
+                3 => 'nina.karlina@gmail.com',
+                4 => 'rudi.hartono@gmail.com',
+                5 => 'maya.sari@gmail.com',
+                6 => 'yusuf.maulana@gmail.com',
+                7 => 'lina.handayani@gmail.com',
+                8 => 'fajar.nugroho@gmail.com',
+                9 => 'dewi.anggraini@gmail.com',
+                default => 'hendra.wijaya@gmail.com',
+            }, [
+                'name' => match ($i) {
+                    1 => 'Siti Rahma',
+                    2 => 'Agus Salim',
+                    3 => 'Nina Karlina',
+                    4 => 'Rudi Hartono',
+                    5 => 'Maya Sari',
+                    6 => 'Yusuf Maulana',
+                    7 => 'Lina Handayani',
+                    8 => 'Fajar Nugroho',
+                    9 => 'Dewi Anggraini',
+                    default => 'Hendra Wijaya',
+                },
                 'phone' => "085700000{$i}",
                 'address' => "Jl. Orang Tua {$i} No. {$i}",
                 'city' => 'Batam',
@@ -131,8 +153,30 @@ class ComprehensiveDummySeeder extends Seeder
                 'is_active' => true,
             ]);
 
-            $students[] = $this->upsertUser("student{$i}@dummy.test", [
-                'name' => "Dummy Student {$i}",
+            $students[] = $this->upsertUser(match ($i) {
+                1 => 'alya.putri@gmail.com',
+                2 => 'bagas.pratama@gmail.com',
+                3 => 'citra.lestari@gmail.com',
+                4 => 'dimas.saputra@gmail.com',
+                5 => 'eka.nurhaliza@gmail.com',
+                6 => 'farhan.akbar@gmail.com',
+                7 => 'gita.maharani@gmail.com',
+                8 => 'hafiz.ramadhan@gmail.com',
+                9 => 'intan.permata@gmail.com',
+                default => 'jovan.kurniawan@gmail.com',
+            }, [
+                'name' => match ($i) {
+                    1 => 'Alya Putri',
+                    2 => 'Bagas Pratama',
+                    3 => 'Citra Lestari',
+                    4 => 'Dimas Saputra',
+                    5 => 'Eka Nurhaliza',
+                    6 => 'Farhan Akbar',
+                    7 => 'Gita Maharani',
+                    8 => 'Hafiz Ramadhan',
+                    9 => 'Intan Permata',
+                    default => 'Jovan Kurniawan',
+                },
                 'code' => sprintf('SIS-DUMMY-%03d', $i),
                 'parent_id' => $parents[$i - 1]->id,
                 'phone' => "085800000{$i}",
@@ -151,8 +195,30 @@ class ComprehensiveDummySeeder extends Seeder
                 ]);
             }
 
-            $tentors[] = $this->upsertUser("tentor{$i}@dummy.test", [
-                'name' => "Dummy Tentor {$i}",
+            $tentors[] = $this->upsertUser(match ($i) {
+                1 => 'rina.maharani@gmail.com',
+                2 => 'andi.prakoso@gmail.com',
+                3 => 'bella.oktavia@gmail.com',
+                4 => 'chandra.gunawan@gmail.com',
+                5 => 'dewi.kusuma@gmail.com',
+                6 => 'erwin.hidayat@gmail.com',
+                7 => 'fitri.amelia@gmail.com',
+                8 => 'galih.pranata@gmail.com',
+                9 => 'hana.safitri@gmail.com',
+                default => 'iqbal.firmansyah@gmail.com',
+            }, [
+                'name' => match ($i) {
+                    1 => 'Rina Maharani',
+                    2 => 'Andi Prakoso',
+                    3 => 'Bella Oktavia',
+                    4 => 'Chandra Gunawan',
+                    5 => 'Dewi Kusuma',
+                    6 => 'Erwin Hidayat',
+                    7 => 'Fitri Amelia',
+                    8 => 'Galih Pranata',
+                    9 => 'Hana Safitri',
+                    default => 'Iqbal Firmansyah',
+                },
                 'phone' => "086900000{$i}",
                 'address' => "Jl. Tentor {$i} No. {$i}",
                 'city' => 'Batam',
@@ -192,7 +258,7 @@ class ComprehensiveDummySeeder extends Seeder
         $ids = [];
         $levels = ['SD', 'SMP', 'SMA', 'SMK', 'UNIV'];
         foreach (range(1, 10) as $i) {
-            $name = "Dummy Subject {$i}";
+            $name = $this->subjectName($i);
             $this->upsert('subjects', ['name' => $name], [
                 'level' => $levels[$i % count($levels)],
                 'description' => "Deskripsi mapel dummy {$i}",
@@ -210,7 +276,7 @@ class ComprehensiveDummySeeder extends Seeder
     {
         $ids = [];
         foreach (range(1, 10) as $i) {
-            $name = "Dummy Package {$i}";
+            $name = $this->packageName($i);
             $this->upsert('packages', ['name' => $name], [
                 'description' => "Paket dummy {$i}",
                 'is_active' => true,
@@ -258,7 +324,7 @@ class ComprehensiveDummySeeder extends Seeder
             $pair = $types[($i - 1) % count($types)];
             $code = sprintf('D%03d', $i);
             $this->upsert('coas', ['code' => $code], [
-                'name' => "Dummy COA {$i}",
+                'name' => $this->coaName($i),
                 'type' => $pair[0],
                 'normal_balance' => $pair[1],
                 'is_active' => true,
@@ -304,7 +370,7 @@ class ComprehensiveDummySeeder extends Seeder
         foreach (range(1, 10) as $i) {
             $sku = sprintf('DUMMY-ITEM-%03d', $i);
             $this->upsert('items', ['sku' => $sku], [
-                'name' => "Dummy Item {$i}",
+                'name' => $this->itemName($i),
                 'description' => "Inventori dummy {$i}",
                 'price' => 10000 * $i,
                 'stock' => 20 + $i,
@@ -877,6 +943,102 @@ class ComprehensiveDummySeeder extends Seeder
         ], $attributes);
 
         return User::updateOrCreate(['email' => $email], $payload);
+    }
+
+    private function tenantName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Priviate Pusat',
+            2 => 'Priviate Batam Center',
+            3 => 'Priviate Nagoya',
+            4 => 'Priviate Baloi',
+            5 => 'Priviate Tiban',
+            6 => 'Priviate Batu Aji',
+            7 => 'Priviate Bengkong',
+            8 => 'Priviate Sekupang',
+            9 => 'Priviate Lubuk Baja',
+            default => 'Priviate Kota Mas',
+        };
+    }
+
+    private function siteName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Priviate Learning Center',
+            2 => 'Priviate Batam',
+            3 => 'Priviate Akademi',
+            4 => 'Priviate Smart Class',
+            5 => 'Priviate Tutor Hub',
+            6 => 'Priviate Home Learning',
+            7 => 'Priviate Student Space',
+            8 => 'Priviate Edu Center',
+            9 => 'Priviate Genius Point',
+            default => 'Priviate Study Room',
+        };
+    }
+
+    private function subjectName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Matematika Dasar',
+            2 => 'Bahasa Indonesia',
+            3 => 'Bahasa Inggris',
+            4 => 'IPA Terpadu',
+            5 => 'IPS Terpadu',
+            6 => 'Fisika',
+            7 => 'Kimia',
+            8 => 'Biologi',
+            9 => 'Ekonomi',
+            default => 'Geografi',
+        };
+    }
+
+    private function packageName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Paket Reguler SD',
+            2 => 'Paket Reguler SMP',
+            3 => 'Paket Reguler SMA',
+            4 => 'Paket Intensif UTBK',
+            5 => 'Paket Privat Matematika',
+            6 => 'Paket Privat Inggris',
+            7 => 'Paket Sains Terpadu',
+            8 => 'Paket Persiapan Ujian',
+            9 => 'Paket Kelas Premium',
+            default => 'Paket Belajar Fleksibel',
+        };
+    }
+
+    private function coaName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Kas Operasional',
+            2 => 'Utang Usaha',
+            3 => 'Modal Pemilik',
+            4 => 'Pendapatan Kursus',
+            5 => 'Beban Operasional',
+            6 => 'Piutang Siswa',
+            7 => 'Pendapatan Les Privat',
+            8 => 'Beban Gaji Tentor',
+            9 => 'Perlengkapan Kantor',
+            default => 'Pendapatan Lain-lain',
+        };
+    }
+
+    private function itemName(int $i): string
+    {
+        return match ($i) {
+            1 => 'Meja Belajar',
+            2 => 'Kursi Siswa',
+            3 => 'Papan Tulis',
+            4 => 'Spidol Whiteboard',
+            5 => 'Proyektor Mini',
+            6 => 'Modul Matematika',
+            7 => 'Modul Bahasa Inggris',
+            8 => 'Laptop Operasional',
+            9 => 'Printer Inkjet',
+            default => 'Rak Buku',
+        };
     }
 
     private function upsert(string $table, array $keys, array $values, bool $withAudit = true): void

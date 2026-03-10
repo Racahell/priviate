@@ -48,7 +48,7 @@
                         <option value="">Pilih jam sesi</option>
                         @foreach(($openSlots ?? collect()) as $slot)
                             <option value="{{ $slot->id }}" {{ old('schedule_slot_id') == (string) $slot->id ? 'selected' : '' }}>
-                                {{ optional($slot->start_at)->format('H:i') }} - {{ optional($slot->end_at)->format('H:i') }}
+                                {{ 'Sesi ' . $loop->iteration . ' | ' . optional($slot->start_at)->format('H:i') . ' - ' . optional($slot->end_at)->format('H:i') }}
                             </option>
                         @endforeach
                     </select>
