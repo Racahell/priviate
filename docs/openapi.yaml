@@ -1,0 +1,338 @@
+openapi: 3.0.3
+info:
+  title: SIM Les Privat API
+  version: 1.0.0
+  description: API contract untuk fitur enterprise sesuai blueprint.
+servers:
+  - url: http://localhost
+tags:
+  - name: Auth
+  - name: Superadmin
+  - name: Operations
+  - name: Owner
+
+paths:
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                captcha: { type: integer }
+                g-recaptcha-response: { type: string }
+                location_status: { type: string, enum: [ALLOW, DENIED] }
+                latitude: { type: number }
+                longitude: { type: number }
+      responses:
+        '302':
+          description: Redirect by role or 2FA form
+
+  /register/pre-verify:
+    post:
+      tags: [Auth]
+      summary: Kirim link aktivasi email sebelum register
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '302':
+          description: Status link terkirim
+
+  /register:
+    post:
+      tags: [Auth]
+      summary: Register setelah pre-verified
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation, role, terms]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+                role: { type: string, enum: [siswa, tentor] }
+                terms: { type: boolean }
+                captcha: { type: integer }
+                g-recaptcha-response: { type: string }
+      responses:
+        '302':
+          description: Redirect dashboard
+
+  /two-factor:
+    post:
+      tags: [Auth]
+      summary: Verifikasi OTP 2FA
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [otp_code]
+              properties:
+                otp_code: { type: string, minLength: 6, maxLength: 6 }
+      responses:
+        '302':
+          description: Redirect dashboard
+
+  /forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request OTP reset password via Email/WA
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, channel]
+              properties:
+                email: { type: string, format: email }
+                channel: { type: string, enum: [EMAIL, WHATSAPP] }
+      responses:
+        '302':
+          description: Redirect form verify OTP
+
+  /location-consent:
+    post:
+      tags: [Auth]
+      summary: Simpan consent lokasi user
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [location_status]
+              properties:
+                location_status: { type: string, enum: [ALLOW, DENIED] }
+                latitude: { type: number }
+                longitude: { type: number }
+      responses:
+        '200':
+          description: Saved
+
+  /superadmin/settings:
+    post:
+      tags: [Superadmin]
+      summary: Update setting web
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [site_name]
+              properties:
+                site_name: { type: string }
+                logo_url: { type: string }
+                address: { type: string }
+                manager_name: { type: string }
+                contact_email: { type: string, format: email }
+                contact_phone: { type: string }
+      responses:
+        '302':
+          description: Updated
+
+  /superadmin/menu-access:
+    post:
+      tags: [Superadmin]
+      summary: Update matrix hak akses menu
+      security:
+        - cookieAuth: []
+      responses:
+        '302':
+          description: Updated
+
+  /superadmin/backup:
+    post:
+      tags: [Superadmin]
+      summary: Buat backup
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [type, mode]
+              properties:
+                type: { type: string, enum: [db, files, config] }
+                mode: { type: string, enum: [update, full] }
+                note: { type: string }
+      responses:
+        '302':
+          description: Backup created
+
+  /superadmin/import/users:
+    post:
+      tags: [Superadmin]
+      summary: Import users CSV
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '302':
+          description: Import done
+
+  /ops/package/select:
+    post:
+      tags: [Operations]
+      summary: Siswa pilih paket
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [package_id]
+              properties:
+                package_id: { type: integer }
+      responses:
+        '302':
+          description: Draft invoice created
+
+  /ops/payment/success:
+    post:
+      tags: [Operations]
+      summary: Callback payment sukses
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [invoice_id, amount, method]
+              properties:
+                invoice_id: { type: integer }
+                amount: { type: number }
+                method: { type: string }
+                transaction_id: { type: string }
+      responses:
+        '302':
+          description: Payment recorded
+
+  /ops/dispute:
+    post:
+      tags: [Operations]
+      summary: Buat dispute
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [tutoring_session_id, reason]
+              properties:
+                tutoring_session_id: { type: integer }
+                reason: { type: string }
+                description: { type: string }
+      responses:
+        '302':
+          description: Dispute opened
+
+  /owner/reports:
+    get:
+      tags: [Owner]
+      summary: Laporan dashboard
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema: { type: string, enum: [weekly, monthly, yearly] }
+        - in: query
+          name: chart
+          schema: { type: string, enum: [bar, line, pie] }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: HTML report dashboard
+
+  /owner/reports/data:
+    get:
+      tags: [Owner]
+      summary: JSON dataset untuk chart dashboard
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema: { type: string, enum: [weekly, monthly, yearly] }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Dataset chart
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  labels:
+                    type: array
+                    items: { type: string }
+                  revenueSeries:
+                    type: array
+                    items: { type: number }
+                  payoutSeries:
+                    type: array
+                    items: { type: number }
+                  costSeries:
+                    type: array
+                    items: { type: number }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: laravel_session
