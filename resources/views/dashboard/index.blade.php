@@ -18,7 +18,12 @@
     <div class="analytics-kpi">
         <p class="stat-label">PROFIT</p>
         <p class="stat-value">Rp {{ number_format((float) data_get($analytics, 'kpi.this_month_profit.amount', 0), 0, ',', '.') }}</p>
-        <p class="card-meta">Profit aktual bulan ini</p>
+        <p class="card-meta">
+            Profit aktual bulan ini
+            @if((float) data_get($analytics, 'kpi.this_month_profit.loss', 0) > 0)
+                | Rugi: Rp {{ number_format((float) data_get($analytics, 'kpi.this_month_profit.loss', 0), 0, ',', '.') }}
+            @endif
+        </p>
         <div class="mini-meter"><span style="width: 52%"></span></div>
     </div>
     <div class="analytics-kpi">

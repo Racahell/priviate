@@ -32,6 +32,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'phone',
         'address',
         'city',
+        'district',
+        'village',
         'province',
         'postal_code',
         'latitude',
@@ -122,5 +124,20 @@ class User extends Authenticatable implements MustVerifyEmail
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function hasCompleteAddress(): bool
+    {
+        $postalCode = trim((string) ($this->postal_code ?? ''));
+
+        return !empty($this->phone)
+            && !empty($this->province)
+            && !empty($this->city)
+            && !empty($this->district)
+            && !empty($this->village)
+            && preg_match('/^[0-9]{5}$/', $postalCode) === 1
+            && !empty($this->address)
+            && !is_null($this->latitude)
+            && !is_null($this->longitude);
     }
 }

@@ -108,8 +108,40 @@ class PortalController extends Controller
         $openSlots = collect();
         $subjects = Subject::query()
             ->where('is_active', true)
+            ->with('classLevel:id,name,category')
             ->orderBy('name')
-            ->get(['id', 'name', 'level']);
+            ->get(['id', 'name', 'level', 'class_level_id']);
+
+        $studentCity = trim((string) ($user->city ?? ''));
+        $tutorOptions = $studentCity === ''
+            ? collect()
+            : User::query()
+            ->role('tentor')
+            ->where('is_active', true)
+            ->where('city', $studentCity)
+            ->whereHas('tentorProfile', fn ($q) => $q->where('is_verified', true))
+            ->whereHas('tentorProfile.skills', fn ($q) => $q->where('is_verified', true))
+            ->with([
+                'tentorProfile.skills' => fn ($q) => $q->where('is_verified', true)->select(['id', 'tentor_profile_id', 'subject_id']),
+            ])
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(function (User $user) {
+                $subjectIds = collect($user->tentorProfile?->skills ?? [])
+                    ->pluck('subject_id')
+                    ->filter(fn ($id) => is_numeric($id))
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (int) $user->id,
+                    'name' => (string) $user->name,
+                    'subject_ids' => $subjectIds,
+                ];
+            })
+            ->values();
 
         $openSlots = ScheduleSlot::query()
             ->orderBy('id')
@@ -147,6 +179,8 @@ class PortalController extends Controller
         return view('portal.student-booking', [
             'bookingInvoices' => $invoices,
             'subjects' => $subjects,
+            'tutorOptions' => $tutorOptions,
+            'studentCity' => $studentCity,
             'openSlots' => $openSlots,
             'bookedSessions' => $bookedSessions,
             'bookedByInvoice' => $bookedByInvoice,
@@ -226,6 +260,7 @@ class PortalController extends Controller
 
         return view('portal.student-invoices', [
             'invoices' => $invoices,
+            'addressComplete' => (bool) $request->user()?->hasCompleteAddress(),
         ]);
     }
 
@@ -368,7 +403,7 @@ class PortalController extends Controller
                 ]
             );
         } else {
-            $studentColumns = ['id', 'name', 'address', 'city', 'province', 'postal_code', 'latitude', 'longitude'];
+            $studentColumns = ['id', 'name', 'address', 'city', 'district', 'village', 'province', 'postal_code', 'latitude', 'longitude'];
             if (Schema::hasColumn('users', 'location_notes')) {
                 $studentColumns[] = 'location_notes';
             }

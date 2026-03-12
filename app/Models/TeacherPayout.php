@@ -9,6 +9,16 @@ class TeacherPayout extends Model
 {
     use HasFactory;
 
+    public const STATUS_PENDING = 'PENDING';
+    public const STATUS_PAID = 'PAID';
+    public const STATUS_FAILED = 'FAILED';
+
+    public const ALLOWED_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_PAID,
+        self::STATUS_FAILED,
+    ];
+
     protected $fillable = [
         'payroll_period_id',
         'teacher_id',
@@ -31,5 +41,10 @@ class TeacherPayout extends Model
     public function session()
     {
         return $this->belongsTo(TutoringSession::class, 'tutoring_session_id');
+    }
+
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = strtoupper((string) $value);
     }
 }

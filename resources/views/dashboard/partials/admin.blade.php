@@ -9,6 +9,10 @@
             <p class="stat-label">Sesi Kritik / Rating Rendah</p>
             <p class="stat-value">{{ $summary['disputed_sessions'] ?? 0 }}</p>
         </div>
+        <div class="stat-item">
+            <p class="stat-label">Rugi Bulan Ini</p>
+            <p class="stat-value">Rp {{ number_format((float) data_get($analytics ?? [], 'kpi.this_month_profit.loss', 0), 0, ',', '.') }}</p>
+        </div>
     </div>
     <div class="split-actions section">
         <a href="{{ route('admin.kyc') }}" class="btn btn-outline">Review KYC</a>

@@ -58,6 +58,8 @@
                                 @php($deliveryMode = strtoupper((string) ($session->delivery_mode ?? 'online')))
                                 @php($studentAddressParts = array_filter([
                                     $session->student?->address,
+                                    $session->student?->village,
+                                    $session->student?->district,
                                     $session->student?->city,
                                     $session->student?->province,
                                     $session->student?->postal_code,
@@ -183,12 +185,16 @@
                 <input type="hidden" name="longitude" id="detailStartLongitude">
                 <button class="btn btn-primary" type="submit" id="detailStartBtn">Mulai</button>
             </form>
-            <form method="POST" id="detailAttendanceForm">
+            <form method="POST" id="detailAttendanceForm" enctype="multipart/form-data">
                 @csrf
-                <input type="hidden" name="student_present" value="1">
+                <input type="hidden" name="student_present" id="detailStudentPresentValue" value="1">
                 <input type="hidden" name="location_status" id="detailAttendanceLocationStatus" value="DENIED">
                 <input type="hidden" name="teacher_lat" id="detailAttendanceLatitude">
                 <input type="hidden" name="teacher_lng" id="detailAttendanceLongitude">
+                <label class="checkbox" style="display:block; margin-bottom:8px;">
+                    <input type="checkbox" id="detailStudentPresentToggle" checked> Murid hadir (divalidasi guru)
+                </label>
+                <input type="file" name="teacher_photo" class="form-control" id="detailTeacherPhotoInput" accept=".jpg,.jpeg,.png" required>
                 <button class="btn btn-outline" type="submit" id="detailAttendanceBtn">Absen</button>
             </form>
             <form method="POST" id="detailMaterialForm" class="material-inline">
@@ -288,6 +294,8 @@
     var attendanceBtn = document.getElementById('detailAttendanceBtn');
     var materialBtn = document.getElementById('detailMaterialBtn');
     var materialSummary = document.getElementById('detailMaterialSummary');
+    var studentPresentToggle = document.getElementById('detailStudentPresentToggle');
+    var studentPresentValue = document.getElementById('detailStudentPresentValue');
     var startLocationStatus = document.getElementById('detailStartLocationStatus');
     var startLatitude = document.getElementById('detailStartLatitude');
     var startLongitude = document.getElementById('detailStartLongitude');
@@ -393,10 +401,18 @@
             materialForm.action = btn.getAttribute('data-material-route') || '#';
 
             setActionEnabled((btn.getAttribute('data-can-action') || '0') === '1');
+            if (studentPresentToggle) studentPresentToggle.checked = true;
+            if (studentPresentValue) studentPresentValue.value = '1';
             refreshLocation();
             openModal();
         });
     });
+
+    if (studentPresentToggle && studentPresentValue) {
+        studentPresentToggle.addEventListener('change', function () {
+            studentPresentValue.value = studentPresentToggle.checked ? '1' : '0';
+        });
+    }
 
     closeBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', function (event) {

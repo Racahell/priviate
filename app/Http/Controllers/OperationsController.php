@@ -84,11 +84,19 @@ class OperationsController extends Controller
 
     public function paymentSuccess(Request $request)
     {
+        $payer = $request->user();
+        if (!$payer || !$payer->hasCompleteAddress()) {
+            return back()->withErrors([
+                'invoice_id' => 'Lengkapi alamat Anda (telepon, provinsi, kota, kecamatan, kelurahan, kode pos, detail alamat, dan titik peta) sebelum melakukan pembayaran.',
+            ]);
+        }
+
         $validated = $request->validate([
             'invoice_id' => 'required|integer',
             'amount' => 'required|numeric|min:1',
             'transaction_id' => 'nullable|string|max:255',
             'method' => 'required|in:bank_transfer,virtual_account,ewallet,qris',
+            'proof_file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
         $invoice = Invoice::findOrFail($validated['invoice_id']);
@@ -103,6 +111,7 @@ class OperationsController extends Controller
             return back()->withErrors(['amount' => 'Nominal pembayaran harus sesuai total invoice.']);
         }
 
+        $proofPath = $request->file('proof_file')?->store('payment-proofs/' . auth()->id(), 'public');
         $payment = Payment::create([
             'invoice_id' => $invoice->id,
             'payment_method' => $validated['method'],
@@ -110,6 +119,7 @@ class OperationsController extends Controller
             'amount' => $validated['amount'],
             'status' => 'success',
             'paid_at' => now(),
+            'proof_url' => $proofPath,
         ]);
 
         $invoice->update(['status' => 'paid']);
@@ -146,6 +156,7 @@ class OperationsController extends Controller
         $validated = $request->validate([
             'invoice_id' => 'required|integer|exists:invoices,id',
             'subject_id' => 'required|integer|exists:subjects,id',
+            'tentor_id' => 'nullable|integer|exists:users,id',
             'booking_days' => 'required|array|min:1',
             'booking_days.*' => 'required|integer|between:0,6',
             'slot_ids' => 'required|array|min:1',
@@ -182,6 +193,12 @@ class OperationsController extends Controller
                 'invoice_id' => 'Sisa sesi pada paket ini tidak cukup untuk booking yang dipilih.',
             ])->withInput();
         }
+        $studentCity = trim((string) ($request->user()?->city ?? ''));
+        if ($studentCity === '') {
+            return back()->withErrors([
+                'invoice_id' => 'Kota domisili siswa belum diisi. Lengkapi profil alamat terlebih dahulu.',
+            ])->withInput();
+        }
         $days = collect($validated['booking_days'] ?? [])->values();
         $slotIds = collect($validated['slot_ids'] ?? [])->values();
         $count = min($days->count(), $slotIds->count());
@@ -202,6 +219,26 @@ class OperationsController extends Controller
             ])->withInput();
         }
 
+        $selectedTentorId = (int) ($validated['tentor_id'] ?? 0);
+        if ($selectedTentorId > 0) {
+            $isValidTentor = User::query()
+                ->where('id', $selectedTentorId)
+                ->where('is_active', true)
+                ->where('city', $studentCity)
+                ->whereHas('roles', fn ($q) => $q->where('name', 'tentor'))
+                ->whereHas('tentorProfile', fn ($q) => $q->where('is_verified', true))
+                ->whereHas('tentorProfile.skills', function ($q) use ($validated) {
+                    $q->where('subject_id', (int) $validated['subject_id'])
+                        ->where('is_verified', true);
+                })
+                ->exists();
+            if (!$isValidTentor) {
+                return back()->withErrors([
+                    'tentor_id' => 'Guru yang dipilih tidak valid untuk mapel ini atau tidak berada di kota yang sama.',
+                ])->withInput();
+            }
+        }
+
         try {
             $sessions = $this->sessionSlotService->bookRecurringForStudent(
                 (int) auth()->id(),
@@ -210,7 +247,8 @@ class OperationsController extends Controller
                 (int) $invoice->id,
                 (string) $validated['delivery_mode'],
                 $bookingWeeks,
-                $entitlement
+                $entitlement,
+                $selectedTentorId > 0 ? $selectedTentorId : null
             );
         } catch (\RuntimeException $e) {
             return back()->withErrors(['slot_ids' => $e->getMessage()])->withInput();
@@ -220,6 +258,7 @@ class OperationsController extends Controller
             'slot_ids' => $selections->pluck('slot_id')->all(),
             'booking_days' => $selections->pluck('booking_day')->all(),
             'subject_id' => $validated['subject_id'],
+            'tentor_id' => $selectedTentorId > 0 ? $selectedTentorId : null,
             'sessions_created' => count($sessions),
             'delivery_mode' => $validated['delivery_mode'],
         ]);
@@ -237,6 +276,7 @@ class OperationsController extends Controller
         $validated = $request->validate([
             'subject_id' => 'required|integer|exists:subjects,id',
             'booking_day' => 'required|integer|between:0,6',
+            'tentor_id' => 'nullable|integer|exists:users,id',
         ]);
 
         $studentId = (int) $request->user()->id;
@@ -247,8 +287,15 @@ class OperationsController extends Controller
             ->orderBy('id')
             ->get(['id']);
 
+        $preferredTentorId = (int) ($validated['tentor_id'] ?? 0);
         $availableSlotIds = $slots
-            ->filter(fn ($slot) => $this->sessionSlotService->canBookSlotForStudent($studentId, $subjectId, (int) $slot->id, $bookingDay))
+            ->filter(fn ($slot) => $this->sessionSlotService->canBookSlotForStudent(
+                $studentId,
+                $subjectId,
+                (int) $slot->id,
+                $bookingDay,
+                $preferredTentorId > 0 ? $preferredTentorId : null
+            ))
             ->pluck('id')
             ->values();
 
@@ -352,7 +399,12 @@ class OperationsController extends Controller
         ]);
 
         $overlap = ScheduleSlot::query()
-            ->whereIn('status', ['OPEN', 'LOCKED', 'BOOKED', 'ASSIGNED'])
+            ->whereIn('status', [
+                ScheduleSlot::STATUS_OPEN,
+                ScheduleSlot::STATUS_LOCKED,
+                ScheduleSlot::STATUS_BOOKED,
+                ScheduleSlot::STATUS_ASSIGNED,
+            ])
             ->where(function ($q) use ($validated) {
                 $q->whereBetween('start_at', [$validated['start_at'], $validated['end_at']])
                     ->orWhereBetween('end_at', [$validated['start_at'], $validated['end_at']]);
@@ -366,7 +418,7 @@ class OperationsController extends Controller
             'name' => trim((string) ($validated['name'] ?? '')) ?: 'Slot ' . Carbon::parse($validated['start_at'])->format('H:i') . ' - ' . Carbon::parse($validated['end_at'])->format('H:i'),
             'start_at' => $validated['start_at'],
             'end_at' => $validated['end_at'],
-            'status' => 'OPEN',
+            'status' => ScheduleSlot::STATUS_OPEN,
         ]);
 
         $this->auditService->log('SCHEDULE_CREATED', $slot);
@@ -411,6 +463,11 @@ class OperationsController extends Controller
 
     public function markAttendance(Request $request, int $sessionId)
     {
+        $request->validate([
+            'student_present' => 'nullable|boolean',
+            'teacher_photo' => 'required|image|mimes:jpg,jpeg,png|max:5120',
+        ]);
+
         $session = TutoringSession::findOrFail($sessionId);
         if ($session->tentor_id !== auth()->id()) {
             abort(403, 'Unauthorized');
@@ -421,23 +478,76 @@ class OperationsController extends Controller
 
         $teacherLocation = $this->normalizeLocationPayload($request, 'teacher_lat', 'teacher_lng');
 
-        $record = AttendanceRecord::create([
+        $photoPath = $request->file('teacher_photo')?->store('attendance/teacher/' . auth()->id(), 'public');
+        $record = AttendanceRecord::query()->firstOrNew([
             'tutoring_session_id' => $session->id,
+        ]);
+        $record->fill([
             'teacher_id' => $session->tentor_id,
             'student_id' => $session->student_id,
             'teacher_present' => true,
-            'student_present' => (bool) $request->boolean('student_present', true),
+            'student_present' => (bool) $request->boolean('student_present', $record->student_present ?? false),
             'teacher_lat' => $teacherLocation['latitude'],
             'teacher_lng' => $teacherLocation['longitude'],
-            'student_lat' => $request->input('student_lat'),
-            'student_lng' => $request->input('student_lng'),
+            'student_lat' => $record->student_lat,
+            'student_lng' => $record->student_lng,
+            'teacher_photo_path' => $photoPath ?: $record->teacher_photo_path,
+            'teacher_validated_student' => true,
+            'teacher_validated_at' => now(),
             'location_status' => $teacherLocation['location_status'],
             'attendance_at' => now(),
         ]);
+        $record->save();
 
         $this->auditService->log('ATTENDANCE_MARKED', $record);
 
         return back()->with('status', 'Absensi direkam.');
+    }
+
+    public function studentValidateAttendance(Request $request, int $sessionId)
+    {
+        $request->validate([
+            'teacher_present' => 'nullable|boolean',
+            'student_photo' => 'required|image|mimes:jpg,jpeg,png|max:5120',
+        ]);
+
+        $session = TutoringSession::findOrFail($sessionId);
+        if ((int) $session->student_id !== (int) auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        if ($session->scheduled_at && now()->lt($session->scheduled_at)) {
+            return back()->withErrors(['status' => 'Validasi absensi belum bisa dilakukan sebelum jam sesi dimulai.']);
+        }
+
+        $studentLocation = $this->normalizeLocationPayload($request, 'student_lat', 'student_lng');
+        $photoPath = $request->file('student_photo')?->store('attendance/student/' . auth()->id(), 'public');
+
+        $record = AttendanceRecord::query()->firstOrNew([
+            'tutoring_session_id' => $session->id,
+        ]);
+        $record->fill([
+            'teacher_id' => $session->tentor_id,
+            'student_id' => $session->student_id,
+            'teacher_present' => (bool) $request->boolean('teacher_present', $record->teacher_present ?? true),
+            'student_present' => true,
+            'teacher_lat' => $record->teacher_lat,
+            'teacher_lng' => $record->teacher_lng,
+            'student_lat' => $studentLocation['latitude'],
+            'student_lng' => $studentLocation['longitude'],
+            'student_photo_path' => $photoPath ?: $record->student_photo_path,
+            'student_validated_teacher' => true,
+            'student_validated_at' => now(),
+            'location_status' => $studentLocation['location_status'] === 'ALLOW'
+                ? 'ALLOW'
+                : ($record->location_status ?: 'DENIED'),
+            'attendance_at' => now(),
+        ]);
+        $record->save();
+
+        $this->auditService->log('ATTENDANCE_VALIDATED_BY_STUDENT', $record);
+
+        return back()->with('status', 'Validasi kehadiran guru berhasil disimpan.');
     }
 
     private function normalizeLocationPayload(Request $request, string $latitudeKey, string $longitudeKey): array
@@ -524,7 +634,7 @@ class OperationsController extends Controller
             'source_role' => auth()->user()?->getRoleNames()->first(),
             'reason' => $validated['reason'],
             'description' => $validated['description'] ?? null,
-            'status' => 'DISPUTE_OPEN',
+            'status' => Dispute::STATUS_OPEN,
         ]);
 
         $this->auditService->log('DISPUTE_CREATED', $dispute);
@@ -542,7 +652,11 @@ class OperationsController extends Controller
         $old = $dispute->toArray();
 
         $validated = $request->validate([
-            'status' => 'required|in:IN_REVIEW_L1,IN_REVIEW_ADMIN,RESOLVED',
+            'status' => 'required|in:' . implode(',', [
+                Dispute::STATUS_IN_REVIEW_L1,
+                Dispute::STATUS_IN_REVIEW_ADMIN,
+                Dispute::STATUS_RESOLVED,
+            ]),
             'notes' => 'nullable|string',
         ]);
 
@@ -567,7 +681,7 @@ class OperationsController extends Controller
         $old = $dispute->toArray();
 
         $dispute->update([
-            'status' => 'RESOLVED',
+            'status' => Dispute::STATUS_RESOLVED,
             'resolved_at' => now(),
             'resolved_by' => auth()->id(),
         ]);
@@ -579,7 +693,7 @@ class OperationsController extends Controller
             'notes' => $request->input('notes'),
         ]);
 
-        $this->sendDisputeReplyEmail($dispute, (string) $request->input('notes', ''), 'RESOLVED');
+        $this->sendDisputeReplyEmail($dispute, (string) $request->input('notes', ''), Dispute::STATUS_RESOLVED);
 
         $this->auditService->log('DISPUTE_RESOLVED', $dispute, $old, $dispute->toArray());
 
@@ -621,7 +735,7 @@ class OperationsController extends Controller
             'gross_amount' => $validated['net_amount'],
             'deduction_amount' => 0,
             'net_amount' => $validated['net_amount'],
-            'status' => 'PENDING',
+            'status' => TeacherPayout::STATUS_PENDING,
         ]);
 
         $this->auditService->log('TEACHER_PAYOUT_CREATED', $payout);
@@ -641,7 +755,7 @@ class OperationsController extends Controller
     {
         $payout = TeacherPayout::findOrFail($id);
         $payout->update([
-            'status' => 'PAID',
+            'status' => TeacherPayout::STATUS_PAID,
             'paid_at' => now(),
             'reference_number' => 'PAYOUT-' . now()->format('YmdHis'),
         ]);
@@ -669,7 +783,7 @@ class OperationsController extends Controller
         }
         $existingPendingRequest = RescheduleRequest::query()
             ->where('tutoring_session_id', $session->id)
-            ->whereIn('status', ['PENDING', 'pending'])
+            ->where('status', RescheduleRequest::STATUS_PENDING)
             ->exists();
         if ($existingPendingRequest) {
             return back()->withErrors([
@@ -690,7 +804,7 @@ class OperationsController extends Controller
             'requested_by' => auth()->id(),
             'requested_start_at' => $newStart,
             'requested_end_at' => $newEnd,
-            'status' => 'PENDING',
+            'status' => RescheduleRequest::STATUS_PENDING,
             'reason' => $validated['reason'] ?? null,
         ]);
 
@@ -729,7 +843,7 @@ class OperationsController extends Controller
     public function approveReschedule(int $id)
     {
         $req = RescheduleRequest::findOrFail($id);
-        if (strtoupper((string) $req->status) !== 'PENDING') {
+        if (strtoupper((string) $req->status) !== RescheduleRequest::STATUS_PENDING) {
             return back()->withErrors(['status' => 'Reschedule ini sudah diproses sebelumnya.']);
         }
         $session = TutoringSession::findOrFail($req->tutoring_session_id);
@@ -745,7 +859,7 @@ class OperationsController extends Controller
         }
 
         $req->update([
-            'status' => 'APPROVED',
+            'status' => RescheduleRequest::STATUS_APPROVED,
             'approved_at' => now(),
             'approved_by' => auth()->id(),
         ]);
@@ -756,11 +870,11 @@ class OperationsController extends Controller
     public function denyReschedule(int $id)
     {
         $req = RescheduleRequest::findOrFail($id);
-        if (strtoupper((string) $req->status) !== 'PENDING') {
+        if (strtoupper((string) $req->status) !== RescheduleRequest::STATUS_PENDING) {
             return back()->withErrors(['status' => 'Reschedule ini sudah diproses sebelumnya.']);
         }
         $req->update([
-            'status' => 'DENIED',
+            'status' => RescheduleRequest::STATUS_DENIED,
             'approved_at' => now(),
             'approved_by' => auth()->id(),
         ]);

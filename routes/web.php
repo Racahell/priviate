@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Guest\DashboardController as GuestController;
+use App\Http\Controllers\LocationLookupController;
 use App\Http\Controllers\ModuleDataController;
 use App\Http\Controllers\Owner\DashboardController as OwnerController;
 use App\Http\Controllers\Owner\ReportController as OwnerReportController;
@@ -15,6 +16,14 @@ use App\Http\Controllers\Superadmin\WhitelabelController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [GuestController::class, 'index'])->name('home');
+Route::prefix('location-lookup')->name('location.lookup.')->group(function () {
+    Route::get('/provinces', [LocationLookupController::class, 'provinces'])->name('provinces');
+    Route::get('/regencies/{provinceId}', [LocationLookupController::class, 'regencies'])->name('regencies');
+    Route::get('/districts/{regencyId}', [LocationLookupController::class, 'districts'])->name('districts');
+    Route::get('/villages/{districtId}', [LocationLookupController::class, 'villages'])->name('villages');
+    Route::get('/postal-codes', [LocationLookupController::class, 'postalCodes'])->name('postal_codes');
+    Route::post('/debug-geolocation', [LocationLookupController::class, 'debugGeolocation'])->name('debug_geolocation');
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -53,6 +62,7 @@ Route::middleware(['auth', 'access.control', 'menu.permission'])->group(function
     Route::post('/ops/session/{sessionId}/reminder', [OperationsController::class, 'sendReminder'])->name('ops.session.reminder');
     Route::post('/ops/session/{sessionId}/start', [OperationsController::class, 'startSession'])->name('ops.session.start');
     Route::post('/ops/session/{sessionId}/attendance', [OperationsController::class, 'markAttendance'])->name('ops.attendance.mark');
+    Route::post('/ops/session/{sessionId}/attendance/student', [OperationsController::class, 'studentValidateAttendance'])->name('ops.attendance.student');
     Route::post('/ops/session/{sessionId}/material', [OperationsController::class, 'submitMaterial'])->name('ops.material.submit');
     Route::post('/ops/slot/book', [OperationsController::class, 'bookSlot'])->name('ops.slot.book');
     Route::get('/ops/slot/availability', [OperationsController::class, 'slotAvailability'])->name('ops.slot.availability');

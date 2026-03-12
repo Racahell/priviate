@@ -69,7 +69,7 @@ class ReportController extends Controller
         $validated = $request->validate([
             'cost_date' => 'required|date',
             'category' => 'required|string|max:100',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|min:0|max:1000000000',
             'description' => 'nullable|string',
         ]);
 

@@ -6,6 +6,11 @@
 <div class="card">
     <h3 class="card-title">Riwayat Invoice</h3>
     <p class="card-meta">Kelola tagihan, buka detail pembayaran, pilih metode, lalu bayar invoice Anda.</p>
+    @if(!($addressComplete ?? false))
+        <div class="alert alert-warning">
+            Alamat belum lengkap. Lengkapi telepon, provinsi, kota, kecamatan, kelurahan, kode pos, detail alamat, dan titik peta di menu Profil sebelum melakukan pembayaran.
+        </div>
+    @endif
     @include('components.pagination-controls', ['paginator' => $invoices, 'showPerPage' => true, 'showPager' => false, 'position' => 'top'])
 <div class="table-wrap section">
         <table>
@@ -34,6 +39,10 @@
                                 <button
                                     type="button"
                                     class="btn btn-primary open-payment-modal"
+                                    @if(!($addressComplete ?? false))
+                                        disabled
+                                        title="Lengkapi alamat di profil terlebih dahulu"
+                                    @endif
                                     data-invoice-id="{{ $inv->id }}"
                                     data-invoice-number="{{ $inv->invoice_number }}"
                                     data-amount="{{ (float) $inv->total_amount }}"
@@ -64,7 +73,7 @@
             <button type="button" class="btn btn-sm btn-default" id="paymentModalClose">Tutup</button>
         </div>
 
-        <form method="POST" action="{{ route('ops.payment.success') }}" class="section">
+        <form method="POST" action="{{ route('ops.payment.success') }}" class="section" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="invoice_id" id="paymentInvoiceId">
             <input type="hidden" name="transaction_id" id="paymentTransactionId">
@@ -103,6 +112,11 @@
             <div class="form-group">
                 <label>Keterangan</label>
                 <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Pembelian paket belajar"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Upload Bukti Pembayaran</label>
+                <input type="file" name="proof_file" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
+                <small class="text-muted">Format: JPG/PNG/PDF maksimal 5 MB.</small>
             </div>
             <button class="btn btn-success" type="submit">Bayar Sekarang</button>
         </form>
@@ -177,4 +191,3 @@
 
     @include('components.pagination-controls', ['paginator' => $invoices, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
 @endsection
-

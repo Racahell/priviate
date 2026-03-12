@@ -9,6 +9,16 @@ class RescheduleRequest extends Model
 {
     use HasFactory;
 
+    public const STATUS_PENDING = 'PENDING';
+    public const STATUS_APPROVED = 'APPROVED';
+    public const STATUS_DENIED = 'DENIED';
+
+    public const ALLOWED_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_APPROVED,
+        self::STATUS_DENIED,
+    ];
+
     protected $fillable = [
         'tutoring_session_id',
         'requested_by',
@@ -29,5 +39,10 @@ class RescheduleRequest extends Model
     public function session()
     {
         return $this->belongsTo(TutoringSession::class, 'tutoring_session_id');
+    }
+
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = strtoupper((string) $value);
     }
 }

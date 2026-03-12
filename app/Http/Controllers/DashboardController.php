@@ -86,6 +86,13 @@ class DashboardController extends Controller
     {
         return match ($role) {
             'siswa' => [
+                'today_sessions' => TutoringSession::query()
+                    ->with(['tentor:id,name', 'subject:id,name', 'attendanceRecord'])
+                    ->where('student_id', $userId)
+                    ->whereDate('scheduled_at', today())
+                    ->whereIn('status', ['booked', 'ongoing', 'completed'])
+                    ->orderBy('scheduled_at')
+                    ->get(),
                 'weekly_chart' => $this->studentWeeklyChart($userId),
                 'upcoming' => TutoringSession::where('student_id', $userId)
                     ->whereIn('status', ['booked', 'confirmed'])
@@ -100,11 +107,22 @@ class DashboardController extends Controller
                     ->count(),
             ],
             'tentor' => [
+                'today_schedule' => TutoringSession::query()
+                    ->with(['student:id,name', 'subject:id,name', 'attendanceRecord'])
+                    ->where('tentor_id', $userId)
+                    ->whereDate('scheduled_at', today())
+                    ->whereIn('status', ['booked', 'ongoing', 'completed'])
+                    ->orderBy('scheduled_at')
+                    ->get(),
                 'today_sessions' => TutoringSession::where('tentor_id', $userId)
                     ->whereDate('scheduled_at', today())
-                    ->whereIn('status', ['booked', 'confirmed', 'ongoing'])
+                    ->whereIn('status', [
+                        TutoringSession::STATUS_BOOKED,
+                        TutoringSession::STATUS_CONFIRMED,
+                        TutoringSession::STATUS_ONGOING,
+                    ])
                     ->count(),
-                'pending_disputes' => Dispute::where('status', 'DISPUTE_OPEN')->count(),
+                'pending_disputes' => Dispute::where('status', Dispute::STATUS_OPEN)->count(),
             ],
             'orang_tua' => [
                 'children_count' => User::where('parent_id', $userId)
@@ -113,7 +131,7 @@ class DashboardController extends Controller
                 'completed_sessions' => TutoringSession::whereHas('student', function ($query) use ($userId) {
                     $query->where('parent_id', $userId);
                 })->where('status', 'completed')->count(),
-                'pending_reschedule' => RescheduleRequest::whereIn('status', ['PENDING', 'pending'])->whereHas('session.student', function ($query) use ($userId) {
+                'pending_reschedule' => RescheduleRequest::where('status', RescheduleRequest::STATUS_PENDING)->whereHas('session.student', function ($query) use ($userId) {
                     $query->where('parent_id', $userId);
                 })->count(),
             ],
@@ -129,7 +147,7 @@ class DashboardController extends Controller
             ],
             'superadmin' => [
                 'active_users' => User::where('is_active', true)->count(),
-                'open_disputes' => Dispute::where('status', 'DISPUTE_OPEN')->count(),
+                'open_disputes' => Dispute::where('status', Dispute::STATUS_OPEN)->count(),
             ],
             default => [],
         };

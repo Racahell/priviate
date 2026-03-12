@@ -3,6 +3,7 @@
     <div class="grid grid-2">
         <div class="stat-item"><p class="stat-label">Total Siswa</p><p class="stat-value">{{ $summary['students'] ?? 0 }}</p></div>
         <div class="stat-item"><p class="stat-label">Total Tentor</p><p class="stat-value">{{ $summary['tentors'] ?? 0 }}</p></div>
+        <div class="stat-item"><p class="stat-label">Rugi Bulan Ini</p><p class="stat-value">Rp {{ number_format((float) data_get($analytics ?? [], 'kpi.this_month_profit.loss', 0), 0, ',', '.') }}</p></div>
     </div>
     <div class="split-actions section">
         <a class="btn btn-outline" href="{{ route('owner.reports') }}">Laporan Keuangan</a>

@@ -19,6 +19,12 @@ class AttendanceRecord extends Model
         'teacher_lng',
         'student_lat',
         'student_lng',
+        'teacher_photo_path',
+        'student_photo_path',
+        'teacher_validated_student',
+        'student_validated_teacher',
+        'teacher_validated_at',
+        'student_validated_at',
         'location_status',
         'attendance_at',
     ];
@@ -26,6 +32,15 @@ class AttendanceRecord extends Model
     protected $casts = [
         'teacher_present' => 'boolean',
         'student_present' => 'boolean',
+        'teacher_validated_student' => 'boolean',
+        'student_validated_teacher' => 'boolean',
+        'teacher_validated_at' => 'datetime',
+        'student_validated_at' => 'datetime',
         'attendance_at' => 'datetime',
     ];
+
+    public function session()
+    {
+        return $this->belongsTo(TutoringSession::class, 'tutoring_session_id');
+    }
 }

@@ -10,6 +10,23 @@ class TutoringSession extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_BOOKED = 'booked';
+    public const STATUS_ONGOING = 'ongoing';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_DISPUTED = 'disputed';
+    public const STATUS_LOCKED = 'locked';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_AUTO_COMPLETED = 'auto_completed';
+
+    public const ACTIVE_STATUSES = [
+        self::STATUS_BOOKED,
+        self::STATUS_ONGOING,
+        self::STATUS_LOCKED,
+        self::STATUS_CONFIRMED,
+    ];
+
     protected $fillable = [
         'student_id',
         'tentor_id',
@@ -85,5 +102,15 @@ class TutoringSession extends Model
     public function payout()
     {
         return $this->hasOne(TeacherPayout::class, 'tutoring_session_id');
+    }
+
+    public function attendanceRecord()
+    {
+        return $this->hasOne(AttendanceRecord::class, 'tutoring_session_id');
+    }
+
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = strtolower((string) $value);
     }
 }

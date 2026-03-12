@@ -27,7 +27,7 @@ class DashboardController extends Controller
             : Invoice::whereIn('user_id', $childIds)->where('status', 'unpaid')->count();
         $pendingReschedule = empty($childIds)
             ? 0
-            : RescheduleRequest::whereIn('status', ['PENDING', 'pending'])->whereHas('session', function ($query) use ($childIds) {
+            : RescheduleRequest::where('status', RescheduleRequest::STATUS_PENDING)->whereHas('session', function ($query) use ($childIds) {
                 $query->whereIn('student_id', $childIds);
             })->count();
 

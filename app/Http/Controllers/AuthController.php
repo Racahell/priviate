@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -129,11 +130,13 @@ class AuthController extends Controller
         $recaptchaSiteKey = config('services.recaptcha.site_key');
         $subjects = Subject::query()
             ->where('is_active', true)
+            ->with('classLevel:id,name')
             ->orderBy('name')
             ->orderBy('level')
-            ->get(['id', 'name', 'level']);
+            ->get(['id', 'name', 'level', 'class_level_id']);
+        $educationOptions = $this->educationOptions();
 
-        return view('auth.register', compact('captchaQuestion', 'recaptchaSiteKey', 'subjects'));
+        return view('auth.register', compact('captchaQuestion', 'recaptchaSiteKey', 'subjects', 'educationOptions'));
     }
 
     public function login(Request $request)
@@ -446,12 +449,19 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:siswa,tentor,orang_tua',
             'terms' => 'required|accepted',
-            'phone' => 'nullable|string|max:50',
-            'education' => 'nullable|string|max:255',
+            'phone' => ['required', 'string', 'max:20', 'regex:/^0[0-9]{9,14}$/'],
+            'province' => 'required|string|max:100',
+            'city' => 'required|string|max:100',
+            'district' => 'required|string|max:100',
+            'village' => 'required|string|max:100',
+            'postal_code' => ['required', 'regex:/^[0-9]{5}$/'],
+            'address' => 'required|string|max:1000',
+            'location_status' => 'required|in:ALLOW,DENIED',
+            'latitude' => 'required_if:location_status,ALLOW|nullable|numeric',
+            'longitude' => 'required_if:location_status,ALLOW|nullable|numeric',
+            'education' => ['nullable', Rule::in($this->educationOptions())],
             'experience_years' => 'nullable|integer|min:0|max:60',
-            'domicile' => 'nullable|string|max:255',
             'teaching_mode' => 'nullable|in:online,offline,hybrid',
-            'offline_coverage' => 'nullable|string|max:255',
             'tentor_bio' => 'nullable|string',
             'teaching_subject_ids' => 'nullable|array',
             'teaching_subject_ids.*' => 'integer|exists:subjects,id',
@@ -465,10 +475,8 @@ class AuthController extends Controller
 
         if ($validated['role'] === 'tentor') {
             $request->validate([
-                'phone' => 'required|string|max:50',
-                'education' => 'required|string|max:255',
+                'education' => ['required', Rule::in($this->educationOptions())],
                 'experience_years' => 'required|integer|min:0|max:60',
-                'domicile' => 'required|string|max:255',
                 'teaching_mode' => 'required|in:online,offline,hybrid',
                 'teaching_subject_ids' => 'required|array|min:1',
             ]);
@@ -479,11 +487,25 @@ class AuthController extends Controller
         }
 
         $isTentor = $validated['role'] === 'tentor';
+        $location = $this->normalizeLocationPayload($request);
+        if ($location['location_status'] !== 'ALLOW') {
+            return back()->withErrors([
+                'address' => 'Titik lokasi wajib dipilih dari peta sebelum melanjutkan pendaftaran.',
+            ])->withInput();
+        }
 
         $user = User::create([
             'name' => $request->name,
             'email' => strtolower($request->email),
             'phone' => $request->phone,
+            'province' => $request->province,
+            'city' => $request->city,
+            'district' => $request->district,
+            'village' => $request->village,
+            'postal_code' => $request->postal_code,
+            'address' => $request->address,
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
             'password' => Hash::make($request->password),
             'email_verified_at' => null,
             'is_active' => !$isTentor,
@@ -500,9 +522,9 @@ class AuthController extends Controller
                 'bio' => $request->tentor_bio,
                 'education' => $request->education,
                 'experience_years' => $request->experience_years,
-                'domicile' => $request->domicile,
+                'domicile' => $request->city,
                 'teaching_mode' => $request->teaching_mode ?? 'online',
-                'offline_coverage' => $request->offline_coverage,
+                'offline_coverage' => null,
                 'verification_status' => 'PENDING_REVIEW',
                 'is_verified' => false,
                 'cv_path' => $this->storeTentorFile($request, 'cv_file', $user->id),
@@ -787,5 +809,19 @@ class AuthController extends Controller
         }
 
         return $file->store("tentor-docs/{$userId}", 'public');
+    }
+
+    private function educationOptions(): array
+    {
+        return [
+            'SMA/SMK Sederajat',
+            'D1',
+            'D2',
+            'D3',
+            'D4',
+            'S1',
+            'S2',
+            'S3',
+        ];
     }
 }

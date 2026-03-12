@@ -11,6 +11,8 @@
     $isCreateMode = $tab === 'active' && $mode === 'create';
     $isDetailMode = !empty($detail);
     $subjectOptions = $subjectOptions ?? collect();
+    $classLevelOptions = $classLevelOptions ?? collect();
+    $educationOptions = $educationOptions ?? [];
     $weekDayOptions = $weekDayOptions ?? [];
     $moduleRoutes = [
         'packages' => $routePrefix . '.modules.packages',
@@ -100,7 +102,24 @@
                 @elseif($module === 'subjects')
                     <div class="grid grid-3">
                         <div class="form-group"><input class="form-control" name="name" placeholder="Nama Mapel" value="{{ old('name') }}" required></div>
-                        <div class="form-group"><input class="form-control" name="level" placeholder="Level" value="{{ old('level') }}" required></div>
+                        <div class="form-group">
+                            <select class="form-control subject-level-category" name="level_category" required>
+                                <option value="">Pilih Level</option>
+                                <option value="awal" {{ old('level_category') === 'awal' ? 'selected' : '' }}>Awal</option>
+                                <option value="menengah" {{ old('level_category') === 'menengah' ? 'selected' : '' }}>Menengah</option>
+                                <option value="tinggi" {{ old('level_category') === 'tinggi' ? 'selected' : '' }}>Tinggi</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <select class="form-control subject-class-level" name="class_level_id" required>
+                                <option value="">Pilih Kelas</option>
+                                @foreach($classLevelOptions as $classLevel)
+                                    <option value="{{ $classLevel->id }}" data-category="{{ $classLevel->category }}" {{ (string) old('class_level_id') === (string) $classLevel->id ? 'selected' : '' }}>
+                                        {{ $classLevel->name }} ({{ ucfirst((string) $classLevel->category) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="form-group"><textarea class="form-control" name="description" placeholder="Deskripsi">{{ old('description') }}</textarea></div>
                     </div>
                     <div class="form-group checkbox"><label><input type="checkbox" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}> Aktif</label></div>
@@ -158,14 +177,20 @@
                                 @foreach($subjectOptions as $subject)
                                     <label class="checkbox">
                                         <input type="checkbox" name="teaching_subject_ids[]" value="{{ $subject->id }}" {{ in_array((int) $subject->id, collect(old('teaching_subject_ids', []))->map(fn($v) => (int) $v)->all(), true) ? 'checked' : '' }}>
-                                        {{ $subject->name }} ({{ $subject->level }})
+                                        {{ $subject->name }} ({{ ucfirst((string) $subject->level) }}{{ $subject->classLevel?->name ? ' - ' . $subject->classLevel->name : '' }})
                                     </label>
                                 @endforeach
                             </div>
                             <div class="grid grid-3" style="margin-top:12px;">
-                                <div class="form-group"><input class="form-control" name="education" placeholder="Pendidikan Terakhir" value="{{ old('education') }}"></div>
+                                <div class="form-group">
+                                    <select class="form-control" name="education">
+                                        <option value="">Pilih Pendidikan Terakhir</option>
+                                        @foreach($educationOptions as $educationOpt)
+                                            <option value="{{ $educationOpt }}" {{ old('education') === $educationOpt ? 'selected' : '' }}>{{ $educationOpt }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                                 <div class="form-group"><input type="number" min="0" max="60" class="form-control" name="experience_years" placeholder="Pengalaman (tahun)" value="{{ old('experience_years') }}"></div>
-                                <div class="form-group"><input class="form-control" name="domicile" placeholder="Domisili" value="{{ old('domicile') }}"></div>
                                 <div class="form-group">
                                     <select class="form-control" name="teaching_mode">
                                         <option value="online" {{ old('teaching_mode') === 'online' ? 'selected' : '' }}>Mode: Online</option>
@@ -173,7 +198,6 @@
                                         <option value="hybrid" {{ old('teaching_mode') === 'hybrid' ? 'selected' : '' }}>Mode: Keduanya</option>
                                     </select>
                                 </div>
-                                <div class="form-group"><input class="form-control" name="offline_coverage" placeholder="Area Offline" value="{{ old('offline_coverage') }}"></div>
                                 <div class="form-group">
                                     <select class="form-control" name="verification_status">
                                         <option value="PENDING_REVIEW" {{ old('verification_status', 'PENDING_REVIEW') === 'PENDING_REVIEW' ? 'selected' : '' }}>Status: PENDING_REVIEW</option>
@@ -296,22 +320,23 @@
                                         @endphp
                                         <label class="checkbox">
                                             <input type="checkbox" name="teaching_subject_ids[]" value="{{ $subject->id }}" {{ $checked ? 'checked' : '' }}>
-                                            {{ $subject->name }} ({{ $subject->level }})
+                                            {{ $subject->name }} ({{ ucfirst((string) $subject->level) }}{{ $subject->classLevel?->name ? ' - ' . $subject->classLevel->name : '' }})
                                         </label>
                                     @endforeach
                                 </div>
                                 <div class="grid grid-3" style="margin-top:12px;">
                                     <div class="form-group">
                                         <label>Pendidikan</label>
-                                        <input class="form-control" name="education" value="{{ old('education', $detailTentorProfile?->education) }}">
+                                        <select class="form-control" name="education">
+                                            <option value="">Pilih Pendidikan Terakhir</option>
+                                            @foreach($educationOptions as $educationOpt)
+                                                <option value="{{ $educationOpt }}" {{ old('education', $detailTentorProfile?->education) === $educationOpt ? 'selected' : '' }}>{{ $educationOpt }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                     <div class="form-group">
                                         <label>Pengalaman (tahun)</label>
                                         <input type="number" min="0" max="60" class="form-control" name="experience_years" value="{{ old('experience_years', $detailTentorProfile?->experience_years) }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Domisili</label>
-                                        <input class="form-control" name="domicile" value="{{ old('domicile', $detailTentorProfile?->domicile) }}">
                                     </div>
                                     <div class="form-group">
                                         <label>Mode Mengajar</label>
@@ -321,10 +346,6 @@
                                             <option value="offline" {{ $modeValue === 'offline' ? 'selected' : '' }}>Offline</option>
                                             <option value="hybrid" {{ $modeValue === 'hybrid' ? 'selected' : '' }}>Keduanya</option>
                                         </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Area Offline</label>
-                                        <input class="form-control" name="offline_coverage" value="{{ old('offline_coverage', $detailTentorProfile?->offline_coverage) }}">
                                     </div>
                                     <div class="form-group">
                                         <label>Status Verifikasi</label>
@@ -381,7 +402,25 @@
                     @elseif($module === 'subjects')
                         <div class="grid grid-3">
                             <div class="form-group"><input class="form-control" name="name" value="{{ old('name', $detail->name ?? '') }}" required></div>
-                            <div class="form-group"><input class="form-control" name="level" value="{{ old('level', $detail->level ?? '') }}" required></div>
+                            <div class="form-group">
+                                @php($selectedCategory = old('level_category', strtolower((string) ($detail->level ?? ''))))
+                                <select class="form-control subject-level-category" name="level_category" required>
+                                    <option value="">Pilih Level</option>
+                                    <option value="awal" {{ $selectedCategory === 'awal' ? 'selected' : '' }}>Awal</option>
+                                    <option value="menengah" {{ $selectedCategory === 'menengah' ? 'selected' : '' }}>Menengah</option>
+                                    <option value="tinggi" {{ $selectedCategory === 'tinggi' ? 'selected' : '' }}>Tinggi</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control subject-class-level" name="class_level_id" required>
+                                    <option value="">Pilih Kelas</option>
+                                    @foreach($classLevelOptions as $classLevel)
+                                        <option value="{{ $classLevel->id }}" data-category="{{ $classLevel->category }}" {{ (string) old('class_level_id', $detail->class_level_id ?? '') === (string) $classLevel->id ? 'selected' : '' }}>
+                                            {{ $classLevel->name }} ({{ ucfirst((string) $classLevel->category) }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="form-group"><textarea class="form-control" name="description">{{ old('description', $detail->description ?? '') }}</textarea></div>
                         </div>
                         <div class="form-group checkbox"><label><input type="checkbox" name="is_active" value="1" {{ old('is_active', $detail->is_active ?? true) ? 'checked' : '' }}> Aktif</label></div>
@@ -543,6 +582,10 @@
                                     {{ method_exists($row, 'getRoleNames') ? $row->getRoleNames()->implode(', ') : '-' }}
                                 @elseif($column === 'is_active')
                                     {{ (int) $row->{$column} === 1 ? 'Aktif' : 'Nonaktif' }}
+                                @elseif($module === 'subjects' && $column === 'level')
+                                    {{ ucfirst((string) $row->{$column}) }}
+                                @elseif($module === 'subjects' && $column === 'class_level_id')
+                                    {{ $row->classLevel?->name ?? '-' }}
                                 @elseif($module === 'sessions' && in_array($column, ['start_at', 'end_at'], true))
                                     {{ !empty($row->{$column}) ? \Illuminate\Support\Carbon::parse($row->{$column})->format('H:i') : '-' }}
                                 @else
@@ -634,6 +677,36 @@
         }
 
         syncTutorConfigVisibility(document);
+
+        function syncSubjectClassOptions(scope) {
+            var root = scope || document;
+            root.querySelectorAll('form.modal-form').forEach(function (form) {
+                var categorySelect = form.querySelector('.subject-level-category');
+                var classSelect = form.querySelector('.subject-class-level');
+                if (!categorySelect || !classSelect) return;
+
+                function apply() {
+                    var category = String(categorySelect.value || '').toLowerCase();
+                    Array.prototype.slice.call(classSelect.options).forEach(function (opt) {
+                        var optCategory = String(opt.getAttribute('data-category') || '').toLowerCase();
+                        if (!opt.value) {
+                            opt.disabled = false;
+                            return;
+                        }
+                        var allowed = !category || !optCategory || optCategory === category;
+                        opt.disabled = !allowed;
+                        if (!allowed && classSelect.value === opt.value) {
+                            classSelect.value = '';
+                        }
+                    });
+                }
+
+                categorySelect.addEventListener('change', apply);
+                apply();
+            });
+        }
+
+        syncSubjectClassOptions(document);
 
         function closeOpenModal() {
             var overlay = document.querySelector('.modal-overlay.is-open');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendRawEmailJob;
+use App\Models\ClassLevel;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\Package;
@@ -41,6 +42,9 @@ class ModuleDataController extends Controller
         $query = ($cfg['model'])::query();
         if ($module === 'users') {
             $query->with('roles');
+        }
+        if ($module === 'subjects') {
+            $query->with('classLevel:id,name,category');
         }
 
         if ($tab === 'deleted' && $isSuperadmin) {
@@ -96,8 +100,12 @@ class ModuleDataController extends Controller
             'q' => $q,
             'activeFilter' => $activeFilter,
             'subjectOptions' => $module === 'users'
-                ? Subject::query()->orderBy('name')->get(['id', 'name', 'level'])
+                ? Subject::query()->with('classLevel:id,name')->orderBy('name')->get(['id', 'name', 'level', 'class_level_id'])
                 : collect(),
+            'classLevelOptions' => $module === 'subjects'
+                ? ClassLevel::query()->where('is_active', true)->orderBy('category')->orderBy('sort_order')->get(['id', 'name', 'category'])
+                : collect(),
+            'educationOptions' => $this->educationOptions(),
         ]);
     }
 
@@ -223,7 +231,7 @@ class ModuleDataController extends Controller
             'subjects' => [
                 'model' => Subject::class,
                 'title' => 'Mapel',
-                'columns' => ['id', 'name', 'level', 'is_active'],
+                'columns' => ['id', 'name', 'level', 'class_level_id', 'is_active'],
             ],
             'disputes' => [
                 'model' => Dispute::class,
@@ -262,7 +270,7 @@ class ModuleDataController extends Controller
                 'fields' => ['name', 'description', 'is_active', 'trial_enabled', 'trial_limit', 'price', 'quota'],
             ],
             'subjects' => [
-                'fields' => ['name', 'level', 'description', 'is_active'],
+                'fields' => ['name', 'level_category', 'class_level_id', 'description', 'is_active'],
             ],
             'disputes' => [
                 'fields' => ['tutoring_session_id', 'reason', 'description', 'status', 'priority'],
@@ -273,6 +281,7 @@ class ModuleDataController extends Controller
             'users' => [
                 'fields' => ['name', 'email', 'phone', 'is_active', 'role', 'password', 'password_confirmation'],
                 'role_options' => $roleOptions,
+                'education_options' => $this->educationOptions(),
             ],
             'sessions' => [
                 'fields' => ['name', 'start_at', 'end_at'],
@@ -302,7 +311,7 @@ class ModuleDataController extends Controller
             'is_active' => 'nullable|boolean',
             'trial_enabled' => 'nullable|boolean',
             'trial_limit' => 'nullable|integer|min:0',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:0|max:1000000000',
             'quota' => 'nullable|integer|min:0',
         ]);
 
@@ -341,15 +350,24 @@ class ModuleDataController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'level' => 'required|string|max:100',
+            'level_category' => ['required', Rule::in(['awal', 'menengah', 'tinggi'])],
+            'class_level_id' => 'required|integer|exists:class_levels,id',
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
         ]);
 
+        $classLevel = ClassLevel::query()->findOrFail((int) $validated['class_level_id']);
+        if ($classLevel->category !== $validated['level_category']) {
+            return back()->withErrors([
+                'class_level_id' => 'Kelas yang dipilih tidak cocok dengan level kategori.',
+            ])->withInput();
+        }
+
         $subject = $id ? Subject::findOrFail($id) : new Subject();
         $subject->fill([
             'name' => $validated['name'],
-            'level' => $validated['level'],
+            'level' => strtolower((string) $validated['level_category']),
+            'class_level_id' => (int) $validated['class_level_id'],
             'description' => $validated['description'] ?? null,
             'is_active' => (bool) ($validated['is_active'] ?? false),
         ])->save();
@@ -364,7 +382,7 @@ class ModuleDataController extends Controller
             'sku' => ['required', 'string', 'max:100'],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:0|max:1000000000',
             'stock' => 'required|integer|min:0',
             'is_active' => 'nullable|boolean',
         ];
@@ -402,7 +420,11 @@ class ModuleDataController extends Controller
         if ($isReplyStage) {
             $validated = $request->validate([
                 'reply_notes' => 'required|string',
-                'status' => ['required', Rule::in(['IN_REVIEW_L1', 'IN_REVIEW_ADMIN', 'RESOLVED'])],
+                'status' => ['required', Rule::in([
+                    Dispute::STATUS_IN_REVIEW_L1,
+                    Dispute::STATUS_IN_REVIEW_ADMIN,
+                    Dispute::STATUS_RESOLVED,
+                ])],
             ]);
 
             $dispute->fill([
@@ -428,8 +450,8 @@ class ModuleDataController extends Controller
             'tutoring_session_id' => 'nullable|integer|exists:tutoring_sessions,id',
             'reason' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => ['required', Rule::in(['IN_REVIEW_L1', 'IN_REVIEW_ADMIN', 'RESOLVED'])],
-            'priority' => ['nullable', Rule::in(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])],
+            'status' => ['required', Rule::in(Dispute::ALLOWED_STATUSES)],
+            'priority' => ['nullable', Rule::in(Dispute::ALLOWED_PRIORITIES)],
             'reply_notes' => 'nullable|string',
         ]);
 
@@ -503,11 +525,9 @@ class ModuleDataController extends Controller
             'password' => $id ? 'nullable|string|min:6|confirmed' : 'required|string|min:6|confirmed',
             'teaching_subject_ids' => 'nullable|array',
             'teaching_subject_ids.*' => 'integer|exists:subjects,id',
-            'education' => 'nullable|string|max:255',
+            'education' => ['nullable', Rule::in($this->educationOptions())],
             'experience_years' => 'nullable|integer|min:0|max:60',
-            'domicile' => 'nullable|string|max:255',
             'teaching_mode' => 'nullable|in:online,offline,hybrid',
-            'offline_coverage' => 'nullable|string|max:255',
             'tentor_bio' => 'nullable|string',
             'verification_status' => ['nullable', Rule::in(['PENDING_REVIEW', 'APPROVED', 'VERIFIED', 'REJECTED', 'NEEDS_REVISION'])],
             'verification_notes' => 'nullable|string',
@@ -528,8 +548,7 @@ class ModuleDataController extends Controller
         if (($validated['role'] ?? '') === 'tentor') {
             $request->validate([
                 'teaching_subject_ids' => 'required|array|min:1',
-                'education' => 'required|string|max:255',
-                'domicile' => 'required|string|max:255',
+                'education' => ['required', Rule::in($this->educationOptions())],
             ]);
         }
 
@@ -591,9 +610,9 @@ class ModuleDataController extends Controller
             'bio' => $validated['tentor_bio'] ?? $profile->bio,
             'education' => $validated['education'] ?? $profile->education,
             'experience_years' => $validated['experience_years'] ?? $profile->experience_years,
-            'domicile' => $validated['domicile'] ?? $profile->domicile,
+            'domicile' => $user->city ?? $profile->domicile,
             'teaching_mode' => $validated['teaching_mode'] ?? $profile->teaching_mode ?? 'online',
-            'offline_coverage' => $validated['offline_coverage'] ?? $profile->offline_coverage,
+            'offline_coverage' => null,
             'verification_status' => $verificationStatus,
             'verification_notes' => $validated['verification_notes'] ?? $profile->verification_notes,
             'intro_video_url' => $validated['intro_video_url'] ?? $profile->intro_video_url,
@@ -706,10 +725,10 @@ class ModuleDataController extends Controller
             'name' => 'required|string|max:120',
             'start_at' => 'required|date_format:H:i',
             'end_at' => 'required|date_format:H:i',
-            'status' => ['nullable', Rule::in(['OPEN', 'CLOSED'])],
+            'status' => ['nullable', Rule::in([ScheduleSlot::STATUS_OPEN, ScheduleSlot::STATUS_CLOSED])],
         ]);
 
-        $status = $validated['status'] ?? 'OPEN';
+        $status = $validated['status'] ?? ScheduleSlot::STATUS_OPEN;
         if (!$id) {
             [$startAt, $endAt] = $this->buildSessionDateTime($validated['start_at'], $validated['end_at']);
 
@@ -744,7 +763,7 @@ class ModuleDataController extends Controller
             'name' => trim((string) $validated['name']),
             'start_at' => $startAt,
             'end_at' => $endAt,
-            'status' => $validated['status'] ?? ($slot->status ?: 'OPEN'),
+            'status' => $validated['status'] ?? ($slot->status ?: ScheduleSlot::STATUS_OPEN),
             'created_by' => $slot->created_by ?: auth()->id(),
         ])->save();
 
@@ -796,6 +815,20 @@ class ModuleDataController extends Controller
                 default => null,
             };
         });
+    }
+
+    private function educationOptions(): array
+    {
+        return [
+            'SMA/SMK Sederajat',
+            'D1',
+            'D2',
+            'D3',
+            'D4',
+            'S1',
+            'S2',
+            'S3',
+        ];
     }
 
     private function canForceDelete(string $module, Model $row): array

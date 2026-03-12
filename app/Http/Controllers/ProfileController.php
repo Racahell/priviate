@@ -25,16 +25,20 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
+        $requiresCompleteAddress = $user
+            && ($user->hasRole('siswa') || $user->hasRole('tentor') || $user->hasRole('orang_tua'));
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'province' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'phone' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^0[0-9]{9,14}$/'],
+            'address' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:1000'],
+            'city' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:100'],
+            'district' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:100'],
+            'village' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:100'],
+            'province' => [$requiresCompleteAddress ? 'required' : 'nullable', 'string', 'max:100'],
+            'postal_code' => [$requiresCompleteAddress ? 'required' : 'nullable', 'regex:/^[0-9]{5}$/'],
+            'latitude' => [$requiresCompleteAddress ? 'required' : 'nullable', 'numeric'],
+            'longitude' => [$requiresCompleteAddress ? 'required' : 'nullable', 'numeric'],
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'password' => 'nullable|string|min:8|confirmed',
         ]);

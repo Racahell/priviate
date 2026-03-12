@@ -7,6 +7,11 @@
 <div class="card section">
     <h3 class="card-title">Booking Paket</h3>
     <p class="card-meta">Pilih invoice paket yang ingin dibooking. Status booking mengikuti status pembayaran invoice.</p>
+    @if(empty($studentCity))
+        <div class="alert alert-warning">
+            Kota domisili Anda belum diisi. Lengkapi profil alamat terlebih dahulu agar sistem bisa mencocokkan guru di kota yang sama.
+        </div>
+    @endif
 
     @include('components.pagination-controls', ['paginator' => $bookingInvoices, 'showPerPage' => false, 'showPager' => true, 'position' => 'bottom'])
     <div class="table-wrap section">
@@ -105,8 +110,18 @@
                 <select name="subject_id" class="form-control" id="bookingSubject" required>
                     <option value="">Pilih mapel</option>
                     @foreach($subjects as $subject)
-                        <option value="{{ $subject->id }}">{{ $subject->name }}{{ $subject->level ? ' - '.$subject->level : '' }}</option>
+                        <option value="{{ $subject->id }}">
+                            {{ $subject->name }}
+                            {{ $subject->level ? ' - ' . ucfirst((string) $subject->level) : '' }}
+                            {{ $subject->classLevel?->name ? ' (' . $subject->classLevel->name . ')' : '' }}
+                        </option>
                     @endforeach
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pilih Guru</label>
+                <select name="tentor_id" class="form-control" id="bookingTutor" required>
+                    <option value="">Pilih guru mapel terlebih dahulu</option>
                 </select>
             </div>
             <div class="form-group">
@@ -188,14 +203,45 @@
     var tpl = document.getElementById('bookingRowTemplate');
     var subjectEl = document.getElementById('bookingSubject');
     var infoBox = document.getElementById('bookingAvailabilityInfo');
+    var tutorEl = document.getElementById('bookingTutor');
     var ruleText = document.getElementById('bookingRuleText');
     var detailModal = document.getElementById('bookingDetailModal');
     var closeDetailBtn = document.getElementById('closeBookingDetailModal');
     var detailInvoiceLabel = document.getElementById('bookingDetailInvoiceLabel');
     var detailRows = document.getElementById('bookingDetailRows');
+    var studentCity = @json($studentCity ?? '');
     var bookedByInvoice = @json(($bookedByInvoice ?? collect())->toArray());
+    var tutorOptions = @json(($tutorOptions ?? collect())->toArray());
     var endpoint = @json(route('ops.slot.availability'));
-    if (!modal || !closeBtn || !invoiceIdInput || !rowsWrap || !tpl || !subjectEl || !infoBox) return;
+    if (!modal || !closeBtn || !invoiceIdInput || !rowsWrap || !tpl || !subjectEl || !infoBox || !tutorEl) return;
+
+    function renderTutorOptions() {
+        var subjectId = Number(subjectEl.value || 0);
+        var options = tutorOptions.filter(function (tutor) {
+            return Array.isArray(tutor.subject_ids) && tutor.subject_ids.indexOf(subjectId) >= 0;
+        });
+
+        tutorEl.innerHTML = '<option value="">Pilih guru</option>';
+        if (!studentCity) {
+            tutorEl.innerHTML = '<option value="">Lengkapi kota domisili di profil</option>';
+            return;
+        }
+        if (!subjectId) {
+            tutorEl.innerHTML = '<option value="">Pilih mapel terlebih dahulu</option>';
+            return;
+        }
+        if (!options.length) {
+            tutorEl.innerHTML = '<option value="">Belum ada guru tersedia</option>';
+            return;
+        }
+
+        options.forEach(function (tutor) {
+            var opt = document.createElement('option');
+            opt.value = String(tutor.id);
+            opt.textContent = tutor.name || ('Guru #' + tutor.id);
+            tutorEl.appendChild(opt);
+        });
+    }
 
     function openModal() {
         modal.classList.add('is-open');
@@ -302,13 +348,18 @@
 
         var subjectId = subjectEl.value;
         var bookingDay = dayEl.value;
+        var tentorId = tutorEl.value;
         if (!subjectId || bookingDay === '') {
             infoBox.style.display = 'none';
             infoBox.textContent = '';
             return;
         }
 
-        fetch(endpoint + '?subject_id=' + encodeURIComponent(subjectId) + '&booking_day=' + encodeURIComponent(bookingDay), {
+        var query = '?subject_id=' + encodeURIComponent(subjectId) + '&booking_day=' + encodeURIComponent(bookingDay);
+        if (tentorId) {
+            query += '&tentor_id=' + encodeURIComponent(tentorId);
+        }
+        fetch(endpoint + query, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function (res) { return res.json(); })
@@ -355,6 +406,11 @@
     }
 
     subjectEl.addEventListener('change', function () {
+        renderTutorOptions();
+        getRows().forEach(refreshRowAvailability);
+    });
+
+    tutorEl.addEventListener('change', function () {
         getRows().forEach(refreshRowAvailability);
     });
 
@@ -369,6 +425,7 @@
                     : 'Pilih hari dan jam sesi. Jadwal akan dibuat berulang otomatis selama 1 bulan.';
             }
             renderRows(btn.getAttribute('data-weekly-quota') || '1');
+            renderTutorOptions();
             openModal();
         });
     });

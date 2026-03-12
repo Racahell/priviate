@@ -66,13 +66,17 @@ class DashboardAnalyticsService
         $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
         $lastMonthEnd = now()->subMonthNoOverflow()->endOfMonth();
 
+        $rawProfit = $this->profitAmount($thisMonthStart, $thisMonthEnd);
+
         return [
             'today' => $this->sumAndCount($todayStart, $todayEnd),
             'yesterday' => $this->sumAndCount($yesterdayStart, $yesterdayEnd),
             'this_month' => $this->sumAndCount($thisMonthStart, $thisMonthEnd),
             'last_month' => $this->sumAndCount($lastMonthStart, $lastMonthEnd),
             'this_month_profit' => [
-                'amount' => $this->profitAmount($thisMonthStart, $thisMonthEnd),
+                'amount' => max(0, $rawProfit),
+                'loss' => max(0, -1 * $rawProfit),
+                'raw' => $rawProfit,
             ],
         ];
     }

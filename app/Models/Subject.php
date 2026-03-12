@@ -13,6 +13,7 @@ class Subject extends Model
     protected $fillable = [
         'name',
         'level',
+        'class_level_id',
         'description',
         'is_active',
         'is_deleted',
@@ -31,5 +32,10 @@ class Subject extends Model
     public function sessions()
     {
         return $this->hasMany(TutoringSession::class);
+    }
+
+    public function classLevel()
+    {
+        return $this->belongsTo(ClassLevel::class);
     }
 }
