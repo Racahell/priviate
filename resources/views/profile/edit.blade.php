@@ -78,7 +78,7 @@
         </div>
 
         @if($requiresAddressRole)
-            <div class="grid grid-2">
+            <div class="grid grid-1">
                 <div class="form-group">
                     <label>Titik Lokasi</label>
                     <div id="profileAddressMap" style="height:320px; border:1px solid #d7deea; border-radius:10px; margin-bottom:8px;"></div>
@@ -87,10 +87,12 @@
                     <input type="hidden" name="longitude" id="profileLongitude" value="{{ old('longitude', $user->longitude) }}">
                     <small class="text-muted">Dipakai untuk membantu tentor menemukan lokasi saat sesi offline.</small>
                 </div>
-                <div class="form-group">
+                <div class="form-group profile-location-actions">
                     <label>Aksi Lokasi</label>
-                    <button type="button" class="btn btn-outline" id="captureProfileLocationBtn">Gunakan Lokasi Saat Ini</button>
-                    <a href="{{ ($user->latitude && $user->longitude) ? ('https://maps.google.com/?q=' . $user->latitude . ',' . $user->longitude) : '#' }}" target="_blank" rel="noopener" class="btn btn-outline" id="profileMapsLink" style="{{ ($user->latitude && $user->longitude) ? '' : 'display:none;' }}">Lihat di Google Maps</a>
+                    <div class="split-actions">
+                        <button type="button" class="btn btn-outline" id="captureProfileLocationBtn">Gunakan Lokasi Saat Ini</button>
+                        <a href="{{ ($user->latitude && $user->longitude) ? ('https://maps.google.com/?q=' . $user->latitude . ',' . $user->longitude) : '#' }}" target="_blank" rel="noopener" class="btn btn-outline" id="profileMapsLink" style="{{ ($user->latitude && $user->longitude) ? '' : 'display:none;' }}">Lihat di Google Maps</a>
+                    </div>
                 </div>
             </div>
             @if($supportsLocationNotes ?? false)

@@ -49,8 +49,10 @@ class GeneralObserver
                     'model_type' => get_class($model),
                     'model_id' => $model->getKey(),
                     'field' => $field,
-                    'old_value' => isset($original[$field]) ? (string) $original[$field] : null,
-                    'new_value' => (string) $newValue,
+                    'old_value' => array_key_exists($field, $original)
+                        ? $this->normalizeValue($original[$field])
+                        : null,
+                    'new_value' => $this->normalizeValue($newValue),
                     'reason' => request('edit_reason', 'system_update'),
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -115,5 +117,22 @@ class GeneralObserver
     private function shouldSkip(Model $model): bool
     {
         return $model instanceof \App\Models\AuditLog;
+    }
+
+    private function normalizeValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        return (string) $value;
     }
 }

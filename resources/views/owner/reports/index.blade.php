@@ -4,7 +4,9 @@
 
 @section('content')
 @php($reportRoutePrefix = $reportRoutePrefix ?? 'owner')
-<div class="grid grid-3">
+@php($displayNetProfit = (float) max(0, (float) $totalProfit))
+@php($displayLoss = (float) max(0, -1 * (float) $totalProfit))
+<div class="grid grid-4">
     <div class="card">
         <h3 class="card-title">Pendapatan</h3>
         <p class="stat-value">Rp {{ number_format((float) $totalIncome, 0, ',', '.') }}</p>
@@ -15,7 +17,11 @@
     </div>
     <div class="card">
         <h3 class="card-title">Laba Bersih</h3>
-        <p class="stat-value">Rp {{ number_format((float) $totalProfit, 0, ',', '.') }}</p>
+        <p class="stat-value">Rp {{ number_format($displayNetProfit, 0, ',', '.') }}</p>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Rugi</h3>
+        <p class="stat-value">Rp {{ number_format($displayLoss, 0, ',', '.') }}</p>
     </div>
 </div>
 

@@ -154,11 +154,11 @@
                     </div>
                     <div class="form-group checkbox"><label><input type="checkbox" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}> Aktif</label></div>
                 @elseif(in_array($module, ['users', 'user'], true) || ($title === 'User' && isset($detail->email)))
-                    <div class="grid grid-3">
-                        <div class="form-group"><input class="form-control" name="name" placeholder="Nama" value="{{ old('name') }}" required></div>
-                        <div class="form-group"><input type="email" class="form-control" name="email" placeholder="Email" value="{{ old('email') }}" required></div>
-                        <div class="form-group"><input class="form-control" name="phone" placeholder="Phone" value="{{ old('phone') }}"></div>
-                        <div class="form-group">
+                    <div class="grid grid-3 user-create-grid">
+                        <div class="form-group user-create-name"><input class="form-control" name="name" placeholder="Nama" value="{{ old('name') }}" required></div>
+                        <div class="form-group user-create-email"><input type="email" class="form-control" name="email" placeholder="Email" value="{{ old('email') }}" required></div>
+                        <div class="form-group user-create-phone"><input class="form-control" name="phone" placeholder="Phone" value="{{ old('phone') }}"></div>
+                        <div class="form-group user-create-role">
                             <select class="form-control" name="role" required>
                                 <option value="">Pilih Role</option>
                                 @foreach($formConfig['role_options'] ?? [] as $roleOpt)
@@ -166,9 +166,9 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group checkbox"><label><input type="checkbox" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}> Aktif</label></div>
-                        <div class="form-group"><input type="password" class="form-control" name="password" placeholder="Password" required></div>
-                        <div class="form-group"><input type="password" class="form-control" name="password_confirmation" placeholder="Konfirmasi Password" required></div>
+                        <div class="form-group user-create-password"><input type="password" class="form-control" name="password" placeholder="Password" required></div>
+                        <div class="form-group user-create-password-confirm"><input type="password" class="form-control" name="password_confirmation" placeholder="Konfirmasi Password" required></div>
+                        <div class="form-group checkbox user-create-active"><label><input type="checkbox" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}> Aktif</label></div>
                     </div>
                     <div class="tutor-config" data-tutor-config>
                         <div class="section">
